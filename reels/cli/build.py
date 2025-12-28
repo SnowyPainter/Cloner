@@ -7,7 +7,7 @@ import typer
 
 from reels.assets import AssetManager
 from reels.subtitles import build_ass_from_srt, load_style
-from reels.utils.fs import write_json
+from reels.utils.fs import read_json, write_json
 from reels.video.highlight import select
 from reels.video.letterbox import detect_letterbox_crop
 from reels.video.render import render_reel
@@ -25,8 +25,11 @@ def build(
     asset = manager.get(asset_id)
     manager.update_status(asset_id, stage="building", status="running")
 
-    shots = detect_shots(asset.paths.source_video)
-    write_json(asset.paths.shots_json, shots)
+    if asset.paths.shots_json.exists():
+        shots = read_json(asset.paths.shots_json)
+    else:
+        shots = detect_shots(asset.paths.source_video)
+        write_json(asset.paths.shots_json, shots)
 
     highlight = select(shots, max_duration=60.0)
     write_json(asset.paths.highlight_json, highlight)
@@ -46,6 +49,7 @@ def build(
         frame=frame,
         total_duration=sum(shot["end"] - shot["start"] for shot in highlight),
         source_video=asset.paths.source_video,
+        shots=highlight,
     )
     render_reel(
         asset.paths.source_video,

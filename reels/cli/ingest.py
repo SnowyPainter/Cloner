@@ -7,7 +7,8 @@ import typer
 
 from reels.assets import AssetManager
 from reels.download import download_youtube, require_subtitles
-from reels.utils.fs import read_json
+from reels.utils.fs import read_json, write_json
+from reels.video.shot_detect import detect_shots
 
 
 def ingest(youtube_url: str, workspace: Optional[Path] = None) -> str:
@@ -17,6 +18,9 @@ def ingest(youtube_url: str, workspace: Optional[Path] = None) -> str:
 
     download_youtube(youtube_url, asset.paths.source_video, asset.paths.subtitles_dir)
     require_subtitles(asset.paths.subtitles_original)
+
+    shots = detect_shots(asset.paths.source_video)
+    write_json(asset.paths.shots_json, shots)
 
     _update_asset_metadata(manager, asset)
     manager.update_status(asset.asset_id, stage="downloaded", status="done")

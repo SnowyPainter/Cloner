@@ -49,7 +49,11 @@ def render_reel(
             alabels.append(f"[{alabel}]")
 
     if include_audio:
-        concat = "".join(vlabels + alabels) + f"concat=n={len(shot_list)}:v=1:a=1[vcat][acat]"
+        concat_inputs: List[str] = []
+        for vlabel, alabel in zip(vlabels, alabels):
+            concat_inputs.append(vlabel)
+            concat_inputs.append(alabel)
+        concat = "".join(concat_inputs) + f"concat=n={len(shot_list)}:v=1:a=1[vcat][acat]"
     else:
         concat = "".join(vlabels) + f"concat=n={len(shot_list)}:v=1:a=0[vcat]"
 

@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 import re
@@ -37,6 +38,7 @@ def build_ass_from_srt(
     frame: Optional[Dict[str, object]] = None,
     total_duration: Optional[float] = None,
     source_video: Optional[Path] = None,
+    shots: Optional[List[Dict[str, float]]] = None,
 ) -> None:
     subs = pysubs2.load(str(srt_path))
     video = style["video"]
@@ -59,7 +61,10 @@ def build_ass_from_srt(
             energy_data = (times, energies, e_min, e_max)
 
     header = _build_header(res_x, res_y, layout, base, highlight, title_cfg, tagline_cfg)
-    events = _build_events(subs, layout, highlight, energy_data)
+    subtitle_lines: Iterable[SubtitleLineLike] = subs
+    if shots:
+        subtitle_lines = _clip_subs_to_shots(subs, shots)
+    events = _build_events(subtitle_lines, layout, highlight, energy_data)
     if title or tagline:
         events = _prepend_overlays(events, title, tagline, total_duration, subs)
 
@@ -149,7 +154,7 @@ def _build_header(
 
 
 def _build_events(
-    subs: pysubs2.SSAFile,
+    subs: Iterable["SubtitleLineLike"],
     layout: Dict[str, object],
     highlight: Dict[str, object],
     energy_data: Optional[Tuple[np.ndarray, np.ndarray, float, float]],
@@ -178,10 +183,11 @@ def _build_events(
         durations = _allocate_karaoke_durations(duration, weights, min_word, max_word)
         word_colors: Optional[List[str]] = None
         if use_energy and energy_data:
+            source_start_ms = _line_source_start_ms(line)
             word_colors = _energy_colors_for_words(
                 words,
                 durations,
-                start_ms / 1000.0,
+                source_start_ms / 1000.0,
                 energy_data,
                 energy_palette,
                 highlight,
@@ -324,6 +330,62 @@ def _average_energy(
     if abs(times[idx] - mid) < abs(times[before] - mid):
         return float(energies[idx])
     return float(energies[before])
+
+
+@dataclass
+class SubtitleLine:
+    start: int
+    end: int
+    text: str
+    source_start: int
+
+
+SubtitleLineLike = SubtitleLine | pysubs2.SSAEvent
+
+
+def _line_source_start_ms(line: SubtitleLineLike) -> int:
+    if isinstance(line, SubtitleLine):
+        return int(line.source_start)
+    return int(line.start)
+
+
+def _clip_subs_to_shots(
+    subs: pysubs2.SSAFile,
+    shots: List[Dict[str, float]],
+) -> List[SubtitleLine]:
+    lines = list(subs)
+    result: List[SubtitleLine] = []
+    offset_seconds = 0.0
+
+    for shot in shots:
+        shot_start = float(shot["start"])
+        shot_end = float(shot["end"])
+        if shot_end <= shot_start:
+            continue
+        for line in lines:
+            line_start = line.start / 1000.0
+            line_end = line.end / 1000.0
+            if line_end <= shot_start or line_start >= shot_end:
+                continue
+            clip_start = max(line_start, shot_start)
+            clip_end = min(line_end, shot_end)
+            if clip_end <= clip_start:
+                continue
+            new_start = int((clip_start - shot_start + offset_seconds) * 1000)
+            new_end = int((clip_end - shot_start + offset_seconds) * 1000)
+            if new_end <= new_start:
+                new_end = new_start + 10
+            result.append(
+                SubtitleLine(
+                    start=new_start,
+                    end=new_end,
+                    text=line.text,
+                    source_start=int(clip_start * 1000),
+                )
+            )
+        offset_seconds += shot_end - shot_start
+
+    return result
 
 
 def _word_weights(words: List[str], highlight: Dict[str, object]) -> List[float]:
