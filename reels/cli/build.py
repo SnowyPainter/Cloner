@@ -45,6 +45,7 @@ def build(
         tagline=tagline,
         frame=frame,
         total_duration=sum(shot["end"] - shot["start"] for shot in highlight),
+        source_video=asset.paths.source_video,
     )
     render_reel(
         asset.paths.source_video,

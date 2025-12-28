@@ -5,8 +5,11 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import re
 import string
 
+import numpy as np
+
 import pysubs2
 
+from reels.audio.energy import energy_bounds, extract_audio_energy
 from reels.utils.fs import read_json
 
 
@@ -33,6 +36,7 @@ def build_ass_from_srt(
     tagline: Optional[str] = None,
     frame: Optional[Dict[str, object]] = None,
     total_duration: Optional[float] = None,
+    source_video: Optional[Path] = None,
 ) -> None:
     subs = pysubs2.load(str(srt_path))
     video = style["video"]
@@ -45,8 +49,17 @@ def build_ass_from_srt(
         overlays, res_x, res_y, frame
     )
 
+    energy_data: Optional[Tuple[np.ndarray, np.ndarray, float, float]] = None
+    if source_video and _use_energy_palette(highlight):
+        times, energies = extract_audio_energy(source_video)
+        if energies.size:
+            low_pct = float(highlight.get("energy_percentile_min", 5.0))
+            high_pct = float(highlight.get("energy_percentile_max", 95.0))
+            e_min, e_max = energy_bounds(energies, low_pct, high_pct)
+            energy_data = (times, energies, e_min, e_max)
+
     header = _build_header(res_x, res_y, layout, base, highlight, title_cfg, tagline_cfg)
-    events = _build_events(subs, layout, highlight)
+    events = _build_events(subs, layout, highlight, energy_data)
     if title or tagline:
         events = _prepend_overlays(events, title, tagline, total_duration, subs)
 
@@ -135,30 +148,58 @@ def _build_header(
     return "\n".join(lines)
 
 
-def _build_events(subs: pysubs2.SSAFile, layout: Dict[str, object], highlight: Dict[str, object]) -> List[str]:
-    events: List[str] = []
+def _build_events(
+    subs: pysubs2.SSAFile,
+    layout: Dict[str, object],
+    highlight: Dict[str, object],
+    energy_data: Optional[Tuple[np.ndarray, np.ndarray, float, float]],
+) -> List[str]:
+    events_data: List[Tuple[int, int, str]] = []
     max_chars = int(layout.get("max_chars_per_line", 18))
     max_lines = int(layout.get("max_lines", 2))
     min_word = float(highlight.get("min_word_duration", 0.08))
     max_word = float(highlight.get("max_word_duration", 0.2))
+    energy_palette = _normalize_palette(highlight.get("energy_palette", []))
+    use_energy = bool(energy_palette and energy_data)
 
     for line in subs:
-        start = _format_time(line.start)
-        end = _format_time(line.end)
+        start_ms = int(line.start)
+        end_ms = int(line.end)
         text = line.text.replace("\\N", " ").replace("\n", " ")
         text = re.sub(r"\[[^\]]*]", "", text).strip()
         words = [w for w in text.split() if w]
         if not words:
             continue
 
-        duration = max((line.end - line.start) / 1000.0, 0.01)
+        if end_ms <= start_ms:
+            end_ms = start_ms + 10
+        duration = max((end_ms - start_ms) / 1000.0, 0.01)
         weights = _word_weights(words, highlight)
         durations = _allocate_karaoke_durations(duration, weights, min_word, max_word)
+        word_colors: Optional[List[str]] = None
+        if use_energy and energy_data:
+            word_colors = _energy_colors_for_words(
+                words,
+                durations,
+                start_ms / 1000.0,
+                energy_data,
+                energy_palette,
+                highlight,
+            )
 
-        text_with_k = _apply_karaoke(words, durations)
+        text_with_k = _apply_karaoke(words, durations, word_colors, highlight)
         text_with_k = _wrap_karaoke(text_with_k, max_chars, max_lines)
-        events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text_with_k}")
+        if events_data and start_ms < events_data[-1][1]:
+            prev_start, prev_end, prev_text = events_data[-1]
+            adjusted_end = max(start_ms, prev_start + 10)
+            events_data[-1] = (prev_start, adjusted_end, prev_text)
+        events_data.append((start_ms, end_ms, text_with_k))
 
+    events: List[str] = []
+    for start_ms, end_ms, text_with_k in events_data:
+        start = _format_time(start_ms)
+        end = _format_time(end_ms)
+        events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text_with_k}")
     return events
 
 
@@ -182,12 +223,107 @@ def _prepend_overlays(
     return results
 
 
-def _apply_karaoke(words: List[str], durations: Iterable[float]) -> str:
+def _apply_karaoke(
+    words: List[str],
+    durations: Iterable[float],
+    colors: Optional[List[str]],
+    highlight: Dict[str, object],
+) -> str:
     parts = []
-    for word, dur in zip(words, durations):
+    color_tag = str(highlight.get("energy_color_tag", "\\2c"))
+    for idx, (word, dur) in enumerate(zip(words, durations)):
         centis = max(int(round(dur * 100)), 1)
-        parts.append(f"{{\\k{centis}}}{word}")
+        color = colors[idx] if colors and idx < len(colors) else None
+        if color:
+            parts.append(f"{{\\k{centis}{color_tag}{color}&}}{word}")
+        else:
+            parts.append(f"{{\\k{centis}}}{word}")
     return " ".join(parts)
+
+
+def _normalize_palette(raw_palette: object) -> List[str]:
+    palette: List[str] = []
+    if not isinstance(raw_palette, list):
+        return palette
+    for item in raw_palette:
+        if not isinstance(item, str):
+            continue
+        value = item.strip()
+        if not value:
+            continue
+        if not value.startswith("&H"):
+            value = f"&H{value.lstrip('&')}"
+        palette.append(value)
+    return palette
+
+
+def _use_energy_palette(highlight: Dict[str, object]) -> bool:
+    if str(highlight.get("color_mode", "")).lower() == "energy":
+        return True
+    return bool(highlight.get("energy_palette"))
+
+
+def _energy_colors_for_words(
+    words: List[str],
+    durations: List[float],
+    start_time: float,
+    energy_data: Tuple[np.ndarray, np.ndarray, float, float],
+    palette: List[str],
+    highlight: Dict[str, object],
+) -> List[str]:
+    times, energies, e_min, e_max = energy_data
+    levels = len(palette)
+    if levels == 0:
+        return []
+
+    silence_threshold = float(highlight.get("energy_silence_threshold", 0.08))
+    max_step = int(highlight.get("energy_level_max_step", 1))
+    prev_level = 0
+    colors: List[str] = []
+    cursor = start_time
+
+    for idx, dur in enumerate(durations):
+        word_start = cursor
+        word_end = cursor + dur
+        cursor = word_end
+        avg_energy = _average_energy(times, energies, word_start, word_end)
+        norm = (avg_energy - e_min) / (e_max - e_min + 1e-6)
+        norm = float(min(max(norm, 0.0), 1.0))
+        if norm < silence_threshold:
+            level = 0
+        else:
+            level = int(norm * (levels - 1))
+        if idx > 0 and max_step > 0:
+            level = min(prev_level + max_step, level)
+            level = max(prev_level - max_step, level)
+        level = max(0, min(level, levels - 1))
+        colors.append(palette[level])
+        prev_level = level
+
+    return colors
+
+
+def _average_energy(
+    times: np.ndarray,
+    energies: np.ndarray,
+    start_time: float,
+    end_time: float,
+) -> float:
+    if times.size == 0:
+        return 0.0
+    mask = (times >= start_time) & (times <= end_time)
+    if np.any(mask):
+        return float(np.mean(energies[mask]))
+    mid = (start_time + end_time) / 2.0
+    idx = int(np.searchsorted(times, mid))
+    if idx <= 0:
+        return float(energies[0])
+    if idx >= len(times):
+        return float(energies[-1])
+    before = idx - 1
+    if abs(times[idx] - mid) < abs(times[before] - mid):
+        return float(energies[idx])
+    return float(energies[before])
 
 
 def _word_weights(words: List[str], highlight: Dict[str, object]) -> List[float]:
