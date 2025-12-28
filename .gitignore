@@ -1,1 +1,7 @@
 docs/
+workspace/
+__pycache__/
+*.pyc
+.venv/
+.env
+*.egg-info/
