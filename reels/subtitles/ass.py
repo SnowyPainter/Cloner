@@ -171,7 +171,9 @@ def _build_events(
         start_ms = int(line.start)
         end_ms = int(line.end)
         text = line.text.replace("\\N", " ").replace("\n", " ")
-        text = re.sub(r"\[[^\]]*]", "", text).strip()
+        text = re.sub(r"\[[^\]]*]", "", text)
+        text = re.sub(r"(>>|<<)", "", text)
+        text = text.strip()
         words = [w for w in text.split() if w]
         if not words:
             continue

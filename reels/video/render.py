@@ -21,6 +21,8 @@ def render_reel(
     crop: Dict[str, int] | None = None,
     watermark_text: str | None = None,
     watermark_opacity: float = 0.25,
+    transition_duration: float = 0.15,
+    punch_zoom: Dict[str, object] | None = None,
 ) -> None:
     shot_list: List[Dict[str, float]] = list(shots)
     if not shot_list:
@@ -29,6 +31,7 @@ def render_reel(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     include_audio = has_audio(source_video)
+    zoom_factors = _compute_punch_zoom(shot_list, punch_zoom)
     trim_parts: List[str] = []
     frame_parts: List[str] = []
     vlabels: List[str] = []
@@ -37,16 +40,34 @@ def render_reel(
     for idx, shot in enumerate(shot_list):
         start = float(shot["start"])
         end = float(shot["end"])
+        duration = max(end - start, 0.0)
+        local_transition = min(max(transition_duration, 0.0), duration / 2) if duration > 0 else 0.0
+        fade_out_start = max(duration - local_transition, 0.0)
+        zoom = zoom_factors[idx] if idx < len(zoom_factors) else 1.0
+        zoom_chain: List[str] = []
+        if zoom > 1.0001:
+            zoom_chain = [
+                f"scale=w=trunc(iw*{zoom}/2)*2:h=trunc(ih*{zoom}/2)*2",
+                f"crop=w=trunc(iw/{zoom}/2)*2:h=trunc(ih/{zoom}/2)*2:x=(iw-ow)/2:y=(ih-oh)/2",
+            ]
         vlabel = f"v{idx}"
-        trim_parts.append(
-            f"[0:v]trim=start={start}:end={end},setpts=PTS-STARTPTS[{vlabel}]"
-        )
+        video_filters = [
+            f"trim=start={start}:end={end}",
+            "setpts=PTS-STARTPTS",
+            *zoom_chain,
+            "setsar=1",
+            f"fade=t=in:st=0:d={local_transition}",
+            f"fade=t=out:st={fade_out_start}:d={local_transition}",
+        ]
+        trim_parts.append(f"[0:v]{','.join(video_filters)}[{vlabel}]")
         vlabels.append(f"[{vlabel}]")
 
         if include_audio:
             alabel = f"a{idx}"
             trim_parts.append(
-                f"[0:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[{alabel}]"
+                f"[0:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS,"
+                f"afade=t=in:st=0:d={local_transition},"
+                f"afade=t=out:st={fade_out_start}:d={local_transition}[{alabel}]"
             )
             alabels.append(f"[{alabel}]")
 
@@ -74,8 +95,15 @@ def render_reel(
             crop_x = crop["x"]
             crop_y = crop["y"]
             crop_size = crop["size"]
-            bg_crop = f"crop={content_width}:{content_height}:0:{content_top}"
-            fg_crop = f"crop={crop_size}:{crop_size}:{crop_x}:{crop_y}"
+            bg_crop = (
+                "crop=w=min(iw\\,{w}):h=min(ih\\,{h}):x=0:"
+                "y=min(max({y}\\,0)\\,ih-min(ih\\,{h}))"
+            ).format(w=content_width, h=content_height, y=content_top)
+            fg_crop = (
+                "crop=w=min(iw\\,{s}):h=min(ih\\,{s}):"
+                "x=min(max({x}\\,0)\\,iw-min(iw\\,{s})):"
+                "y=min(max({y}\\,0)\\,ih-min(ih\\,{s}))"
+            ).format(s=crop_size, x=crop_x, y=crop_y)
         else:
             bg_crop = None
             fg_crop = None
@@ -161,3 +189,42 @@ def _ffmpeg_escape_text(text: str) -> str:
         .replace("'", "\\'")
         .replace("%", "\\%")
     )
+
+
+def _compute_punch_zoom(
+    shots: List[Dict[str, float]],
+    config: Dict[str, object] | None,
+) -> List[float]:
+    if not config or not config.get("enabled", False):
+        return [1.0 for _ in shots]
+
+    min_zoom = float(config.get("min", 1.03))
+    max_zoom = float(config.get("max", 1.06))
+    metric = str(config.get("metric", "audio")).lower()
+    threshold = float(config.get("threshold", 0.0))
+    min_zoom = max(min_zoom, 1.0)
+    max_zoom = max(max_zoom, min_zoom)
+
+    values: List[float] = []
+    for shot in shots:
+        if metric == "score":
+            values.append(float(shot.get("score", 0.0)))
+        else:
+            values.append(float(shot.get("audio", 0.0)))
+
+    if not values:
+        return [1.0 for _ in shots]
+
+    min_val = min(values)
+    max_val = max(values)
+    if max_val <= min_val:
+        return [min_zoom for _ in shots]
+
+    zooms: List[float] = []
+    for value in values:
+        norm = (value - min_val) / (max_val - min_val)
+        if norm < threshold:
+            zooms.append(1.0)
+            continue
+        zooms.append(min_zoom + norm * (max_zoom - min_zoom))
+    return zooms

@@ -26,19 +26,21 @@ def build(
     asset = manager.get(asset_id)
     manager.update_status(asset_id, stage="building", status="running")
 
+    style = load_style(style_id)
+    shots_cfg = style.get("shots", {})
+
     if asset.paths.shots_json.exists():
         shots = read_json(asset.paths.shots_json)
     else:
         shots = detect_shots(asset.paths.source_video)
         write_json(asset.paths.shots_json, shots)
-
-    highlight = select(shots, max_duration=60.0)
+    min_shot_seconds = float(shots_cfg.get("min_duration", 10.0))
+    highlight = select(shots, max_duration=60.0, min_shot_seconds=min_shot_seconds)
     write_json(asset.paths.highlight_json, highlight)
 
     crop = detect_letterbox_crop(asset.paths.source_video)
     write_json(asset.paths.crop_json, crop.to_dict())
 
-    style = load_style(style_id)
     frame = style.get("frame")
     resolution = tuple(style["video"]["resolution"])
     build_ass_from_srt(
@@ -52,6 +54,13 @@ def build(
         source_video=asset.paths.source_video,
         shots=highlight,
     )
+    fps = float(style["video"].get("fps", 30))
+    transition_frames = shots_cfg.get("transition_frames")
+    if transition_frames is not None:
+        transition_duration = float(transition_frames) / max(fps, 1.0)
+    else:
+        transition_duration = float(shots_cfg.get("transition_duration", 0.15))
+
     render_reel(
         asset.paths.source_video,
         highlight,
@@ -61,6 +70,8 @@ def build(
         frame=frame,
         crop=crop.to_dict(),
         watermark_text=watermark,
+        transition_duration=transition_duration,
+        punch_zoom=shots_cfg.get("punch_zoom"),
     )
 
     manager.update_status(asset_id, stage="done", status="done")

@@ -6,13 +6,14 @@ from typing import Dict, Iterable, List
 def select(
     shots: Iterable[Dict[str, float]],
     max_duration: float = 60.0,
+    min_shot_seconds: float = 10.0,
 ) -> List[Dict[str, float]]:
-    shot_list = list(shots)
+    shot_list = _filter_short_shots(list(shots), min_shot_seconds)
     if not shot_list:
         return []
 
     if any("score" in shot for shot in shot_list):
-        selected = _select_max_score(shot_list, max_duration)
+        selected = _select_by_score(shot_list, max_duration)
         return sorted(selected, key=lambda s: float(s["start"]))
 
     return _select_by_duration(shot_list, max_duration)
@@ -48,44 +49,40 @@ def _select_by_duration(
     return result
 
 
-def _select_max_score(
+def _select_by_score(
     shots: List[Dict[str, float]],
     max_duration: float,
-    step_seconds: float = 0.1,
 ) -> List[Dict[str, float]]:
-    durations: List[int] = []
-    scores: List[float] = []
+    ranked = sorted(shots, key=lambda s: float(s.get("score", 0.0)), reverse=True)
+    result: List[Dict[str, float]] = []
+    total = 0.0
+
+    for shot in ranked:
+        start = float(shot["start"])
+        end = float(shot["end"])
+        duration = end - start
+        if duration <= 0:
+            continue
+        if total + duration > max_duration:
+            continue
+        result.append(shot)
+        total += duration
+        if total >= max_duration:
+            break
+
+    return result
+
+
+def _filter_short_shots(
+    shots: List[Dict[str, float]],
+    min_shot_seconds: float,
+) -> List[Dict[str, float]]:
+    if min_shot_seconds <= 0:
+        return shots
+    result: List[Dict[str, float]] = []
     for shot in shots:
         start = float(shot["start"])
         end = float(shot["end"])
-        duration = max(end - start, 0.0)
-        steps = max(int(round(duration / step_seconds)), 1)
-        durations.append(steps)
-        scores.append(float(shot.get("score", 0.0)))
-
-    max_steps = max(int(round(max_duration / step_seconds)), 1)
-    n = len(shots)
-
-    dp = [-1.0] * (max_steps + 1)
-    choose = [[False] * (max_steps + 1) for _ in range(n)]
-    dp[0] = 0.0
-
-    for i in range(n):
-        dur = durations[i]
-        score = scores[i]
-        for t in range(max_steps, dur - 1, -1):
-            if dp[t - dur] < 0:
-                continue
-            candidate = dp[t - dur] + score
-            if candidate > dp[t]:
-                dp[t] = candidate
-                choose[i][t] = True
-
-    best_time = max(range(max_steps + 1), key=lambda t: dp[t])
-    selected: List[Dict[str, float]] = []
-    t = best_time
-    for i in range(n - 1, -1, -1):
-        if choose[i][t]:
-            selected.append(shots[i])
-            t -= durations[i]
-    return list(reversed(selected))
+        if end - start >= min_shot_seconds:
+            result.append(shot)
+    return result

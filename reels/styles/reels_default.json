@@ -7,6 +7,18 @@
     "resolution": [1080, 1920],
     "fps": 30
   },
+  "shots": {
+    "min_duration": 10.0,
+    "transition_frames": 4,
+    "transition_duration": 0.25,
+    "punch_zoom": {
+      "enabled": true,
+      "min": 1.03,
+      "max": 1.06,
+      "metric": "audio",
+      "threshold": 0.0
+    }
+  },
   "frame": {
     "mode": "square_center",
     "background": "blur",
