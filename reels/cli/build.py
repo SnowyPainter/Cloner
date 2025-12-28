@@ -17,7 +17,7 @@ from reels.video.shot_detect import detect_shots
 def build(
     asset_id: str,
     workspace: Optional[Path] = None,
-    style_id: str = "reels_bold",
+    style_id: str = "reels_default",
     title: Optional[str] = None,
     tagline: Optional[str] = None,
 ) -> Path:
@@ -35,15 +35,17 @@ def build(
     write_json(asset.paths.crop_json, crop.to_dict())
 
     style = load_style(style_id)
+    frame = style.get("frame")
+    resolution = tuple(style["video"]["resolution"])
     build_ass_from_srt(
         asset.paths.subtitles_original,
         asset.paths.subtitles_ass,
         style,
         title=title,
         tagline=tagline,
+        frame=frame,
+        total_duration=sum(shot["end"] - shot["start"] for shot in highlight),
     )
-    resolution = tuple(style["video"]["resolution"])
-    frame = style.get("frame")
     render_reel(
         asset.paths.source_video,
         highlight,

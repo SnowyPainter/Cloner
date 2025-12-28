@@ -50,6 +50,7 @@
     "title": {
       "alignment": 8,
       "margin_v": 60,
+      "padding": 6,
       "font": "Pretendard Black",
       "size": 52,
       "color": "&H00FFFFFF",
@@ -60,8 +61,9 @@
     "tagline": {
       "alignment": 2,
       "margin_v": 60,
+      "padding": 12,
       "font": "Pretendard Black",
-      "size": 44,
+      "size": 72,
       "color": "&H00FFFFFF",
       "outline": 3,
       "shadow": 2,

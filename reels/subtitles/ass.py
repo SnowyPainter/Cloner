@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 import re
 
 import pysubs2
@@ -30,6 +30,8 @@ def build_ass_from_srt(
     style: Dict[str, object],
     title: Optional[str] = None,
     tagline: Optional[str] = None,
+    frame: Optional[Dict[str, object]] = None,
+    total_duration: Optional[float] = None,
 ) -> None:
     subs = pysubs2.load(str(srt_path))
     video = style["video"]
@@ -37,12 +39,15 @@ def build_ass_from_srt(
     layout = style["subtitles"]["layout"]
     base = style["subtitles"]["base_style"]
     highlight = style["subtitles"]["highlight"]
+    overlays = style.get("overlays", {})
+    title_cfg, tagline_cfg = _resolve_overlay_positions(
+        overlays, res_x, res_y, frame
+    )
 
-    header = _build_header(res_x, res_y, layout, base, highlight, style)
+    header = _build_header(res_x, res_y, layout, base, highlight, title_cfg, tagline_cfg)
     events = _build_events(subs, layout, highlight)
     if title or tagline:
-        overlay = style.get("overlays", {})
-        events = _prepend_overlays(events, title, tagline, overlay)
+        events = _prepend_overlays(events, title, tagline, total_duration, subs)
 
     ass_path.write_text(header + "\n" + "\n".join(events) + "\n", encoding="utf-8")
 
@@ -53,7 +58,8 @@ def _build_header(
     layout: Dict[str, object],
     base: Dict[str, object],
     highlight: Dict[str, object],
-    style: Dict[str, object],
+    title_cfg: Optional[Dict[str, object]],
+    tagline_cfg: Optional[Dict[str, object]],
 ) -> str:
     primary = highlight.get("inactive_color", base["color"])
     secondary = highlight.get("active_color", base["color"])
@@ -87,43 +93,40 @@ def _build_header(
         ),
     ]
 
-    overlays = style.get("overlays", {})
-    title = overlays.get("title")
-    if title:
+    if title_cfg:
         lines.append(
             "Style: Title,{font},{size},{primary},{secondary},{outline},{shadow},{bold},{italic},0,0,100,100,0,0,1,{outline_w},{shadow_w},{align},{margin_h},{margin_h},{margin_v},1".format(
-                font=title.get("font", base["font"]),
-                size=title.get("size", base["size"]),
-                primary=title.get("color", primary),
+                font=title_cfg.get("font", base["font"]),
+                size=title_cfg.get("size", base["size"]),
+                primary=title_cfg.get("color", primary),
                 secondary=secondary,
-                outline=title.get("outline_color", outline),
-                shadow=title.get("shadow_color", shadow),
-                bold=-1 if title.get("bold", True) else 0,
-                italic=-1 if title.get("italic", False) else 0,
-                outline_w=title.get("outline", base.get("outline", 3)),
-                shadow_w=title.get("shadow", base.get("shadow", 2)),
-                align=title.get("alignment", 8),
-                margin_h=title.get("margin_h", 0),
-                margin_v=title.get("margin_v", 60),
+                outline=title_cfg.get("outline_color", outline),
+                shadow=title_cfg.get("shadow_color", shadow),
+                bold=-1 if title_cfg.get("bold", True) else 0,
+                italic=-1 if title_cfg.get("italic", False) else 0,
+                outline_w=title_cfg.get("outline", base.get("outline", 3)),
+                shadow_w=title_cfg.get("shadow", base.get("shadow", 2)),
+                align=title_cfg.get("alignment", 2),
+                margin_h=title_cfg.get("margin_h", 0),
+                margin_v=title_cfg.get("margin_v", 60),
             )
         )
-    tagline = overlays.get("tagline")
-    if tagline:
+    if tagline_cfg:
         lines.append(
             "Style: Tagline,{font},{size},{primary},{secondary},{outline},{shadow},{bold},{italic},0,0,100,100,0,0,1,{outline_w},{shadow_w},{align},{margin_h},{margin_h},{margin_v},1".format(
-                font=tagline.get("font", base["font"]),
-                size=tagline.get("size", base["size"]),
-                primary=tagline.get("color", primary),
+                font=tagline_cfg.get("font", base["font"]),
+                size=tagline_cfg.get("size", base["size"]),
+                primary=tagline_cfg.get("color", primary),
                 secondary=secondary,
-                outline=tagline.get("outline_color", outline),
-                shadow=tagline.get("shadow_color", shadow),
-                bold=-1 if tagline.get("bold", True) else 0,
-                italic=-1 if tagline.get("italic", False) else 0,
-                outline_w=tagline.get("outline", base.get("outline", 3)),
-                shadow_w=tagline.get("shadow", base.get("shadow", 2)),
-                align=tagline.get("alignment", 2),
-                margin_h=tagline.get("margin_h", 0),
-                margin_v=tagline.get("margin_v", 80),
+                outline=tagline_cfg.get("outline_color", outline),
+                shadow=tagline_cfg.get("shadow_color", shadow),
+                bold=-1 if tagline_cfg.get("bold", True) else 0,
+                italic=-1 if tagline_cfg.get("italic", False) else 0,
+                outline_w=tagline_cfg.get("outline", base.get("outline", 3)),
+                shadow_w=tagline_cfg.get("shadow", base.get("shadow", 2)),
+                align=tagline_cfg.get("alignment", 8),
+                margin_h=tagline_cfg.get("margin_h", 0),
+                margin_v=tagline_cfg.get("margin_v", 80),
             )
         )
 
@@ -168,18 +171,18 @@ def _prepend_overlays(
     events: List[str],
     title: Optional[str],
     tagline: Optional[str],
-    overlay: Dict[str, object],
+    total_duration: Optional[float],
+    subs: pysubs2.SSAFile,
 ) -> List[str]:
     results = list(events)
-    title_cfg = overlay.get("title", {})
-    tagline_cfg = overlay.get("tagline", {})
+    duration_ms = _resolve_total_duration_ms(total_duration, subs)
     if title:
         start = "0:00:00.00"
-        end = _format_time(int(title_cfg.get("duration_ms", 3500)))
+        end = _format_time(duration_ms)
         results.insert(0, f"Dialogue: 1,{start},{end},Title,,0,0,0,,{title}")
     if tagline:
         start = "0:00:00.00"
-        end = _format_time(int(tagline_cfg.get("duration_ms", 3500)))
+        end = _format_time(duration_ms)
         results.insert(0, f"Dialogue: 1,{start},{end},Tagline,,0,0,0,,{tagline}")
     return results
 
@@ -237,3 +240,43 @@ def _format_time(ms: int) -> str:
     minutes = int((total_seconds % 3600) // 60)
     seconds = total_seconds % 60
     return f"{hours}:{minutes:02d}:{seconds:05.2f}"
+
+
+def _resolve_total_duration_ms(total_duration: Optional[float], subs: pysubs2.SSAFile) -> int:
+    if total_duration is not None:
+        return int(max(total_duration, 0.0) * 1000)
+    if subs:
+        return int(max((line.end for line in subs), default=0))
+    return 0
+
+
+def _resolve_overlay_positions(
+    overlays: Dict[str, object],
+    res_x: int,
+    res_y: int,
+    frame: Optional[Dict[str, object]],
+) -> Tuple[Optional[Dict[str, object]], Optional[Dict[str, object]]]:
+    title_cfg = dict(overlays.get("title", {})) if overlays.get("title") else None
+    tagline_cfg = dict(overlays.get("tagline", {})) if overlays.get("tagline") else None
+
+    if not title_cfg and not tagline_cfg:
+        return title_cfg, tagline_cfg
+
+    padding = int(overlays.get("padding", 24))
+    if frame and frame.get("mode") == "square_center":
+        square_size = min(res_x, res_y)
+        top = (res_y - square_size) // 2
+        bottom = top + square_size
+
+        if title_cfg is not None:
+            title_padding = int(title_cfg.get("padding", padding))
+            title_size = int(title_cfg.get("size", 48))
+            title_cfg["alignment"] = 2
+            title_cfg["margin_v"] = max((res_y - bottom) - title_padding - title_size, 0)
+        if tagline_cfg is not None:
+            tagline_padding = int(tagline_cfg.get("padding", padding))
+            tagline_size = int(tagline_cfg.get("size", 44))
+            tagline_cfg["alignment"] = 8
+            tagline_cfg["margin_v"] = max(top - tagline_padding - tagline_size, 0)
+
+    return title_cfg, tagline_cfg
