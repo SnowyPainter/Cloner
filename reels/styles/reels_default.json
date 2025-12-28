@@ -1,0 +1,71 @@
+{
+  "id": "reels_default",
+  "description": "Default reels subtitle style",
+  "engine": "ass",
+  "video": {
+    "aspect_ratio": "9:16",
+    "resolution": [1080, 1920],
+    "fps": 30
+  },
+  "frame": {
+    "mode": "square_center",
+    "background": "blur",
+    "blur": 12
+  },
+  "subtitles": {
+    "enabled": true,
+    "layout": {
+      "alignment": 5,
+      "margin_v": 0,
+      "margin_h": 0,
+      "max_lines": 2,
+      "max_chars_per_line": 18
+    },
+    "base_style": {
+      "font": "Pretendard Black",
+      "size": 56,
+      "color": "&H00FFFFFF",
+      "outline_color": "&H00000000",
+      "shadow_color": "&H64000000",
+      "outline": 3,
+      "shadow": 2,
+      "bold": true,
+      "italic": false
+    },
+    "highlight": {
+      "enabled": true,
+      "mode": "karaoke",
+      "active_color": "&H0000FFFF",
+      "inactive_color": "&H00FFFFFF",
+      "word_split": "whitespace",
+      "min_word_duration": 0.08,
+      "max_word_duration": 0.2
+    },
+    "animation": {
+      "entry": "none",
+      "exit": "none"
+    }
+  },
+  "overlays": {
+    "title": {
+      "alignment": 8,
+      "margin_v": 60,
+      "font": "Pretendard Black",
+      "size": 52,
+      "color": "&H00FFFFFF",
+      "outline": 3,
+      "shadow": 2,
+      "duration_ms": 3500
+    },
+    "tagline": {
+      "alignment": 2,
+      "margin_v": 60,
+      "font": "Pretendard Black",
+      "size": 44,
+      "color": "&H00FFFFFF",
+      "outline": 3,
+      "shadow": 2,
+      "duration_ms": 3500
+    }
+  }
+}

@@ -8,6 +8,7 @@ yt-dlp>=2024.10.01
 
 # Video (PyAV)
 av>=10.0.0
+numpy>=1.24.0
 
 # Subtitles
 pysubs2>=1.6.1

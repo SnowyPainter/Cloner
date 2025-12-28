@@ -16,6 +16,8 @@ class AssetPaths:
     output_dir: Path
     source_video: Path
     subtitles_original: Path
+    subtitles_ass: Path
+    crop_json: Path
     shots_json: Path
     highlight_json: Path
     output_reel: Path
@@ -36,6 +38,8 @@ class AssetPaths:
             output_dir=output_dir,
             source_video=source_dir / "video.mp4",
             subtitles_original=subtitles_dir / "original.srt",
+            subtitles_ass=derived_dir / "styled.ass",
+            crop_json=derived_dir / "crop.json",
             shots_json=derived_dir / "shots.json",
             highlight_json=derived_dir / "highlight.json",
             output_reel=output_dir / "reel_60s.mp4",
