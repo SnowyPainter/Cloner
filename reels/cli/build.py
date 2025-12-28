@@ -20,6 +20,7 @@ def build(
     style_id: str = "reels_default",
     title: Optional[str] = None,
     tagline: Optional[str] = None,
+    watermark: Optional[str] = None,
 ) -> Path:
     manager = AssetManager(workspace)
     asset = manager.get(asset_id)
@@ -59,6 +60,7 @@ def build(
         resolution=resolution,
         frame=frame,
         crop=crop.to_dict(),
+        watermark_text=watermark,
     )
 
     manager.update_status(asset_id, stage="done", status="done")
@@ -75,7 +77,15 @@ def run(
     style: str = typer.Option("reels_default", "--style"),
     title: Optional[str] = typer.Option(None, "--title"),
     tagline: Optional[str] = typer.Option(None, "--tagline"),
+    watermark: Optional[str] = typer.Option(None, "--watermark"),
 ) -> None:
     """Build a 60s highlight reel from an asset."""
-    output = build(asset_id, workspace, style_id=style, title=title, tagline=tagline)
+    output = build(
+        asset_id,
+        workspace,
+        style_id=style,
+        title=title,
+        tagline=tagline,
+        watermark=watermark,
+    )
     typer.echo(str(output))

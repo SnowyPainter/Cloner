@@ -19,6 +19,8 @@ def render_reel(
     resolution: tuple[int, int] | None = None,
     frame: Dict[str, object] | None = None,
     crop: Dict[str, int] | None = None,
+    watermark_text: str | None = None,
+    watermark_opacity: float = 0.25,
 ) -> None:
     shot_list: List[Dict[str, float]] = list(shots)
     if not shot_list:
@@ -99,6 +101,22 @@ def render_reel(
         width, height = resolution
         filters.append(f"scale=w={width}:h={height}:force_original_aspect_ratio=decrease")
         filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
+    if watermark_text:
+        opacity = max(0.0, min(float(watermark_opacity), 1.0))
+        if resolution:
+            _, height = resolution
+            font_size = max(int(height * 0.06), 24)
+        else:
+            font_size = 48
+        safe_text = _ffmpeg_escape_text(watermark_text)
+        filters.append(
+            "drawtext=text='{text}':x=(w-text_w)/2:y=(h-text_h)/2:"
+            "fontsize={size}:fontcolor=white@{alpha}".format(
+                text=safe_text,
+                size=font_size,
+                alpha=opacity,
+            )
+        )
     if ass_path:
         filters.append(f"subtitles='{_ffmpeg_escape_path(ass_path)}'")
 
@@ -134,3 +152,12 @@ def render_reel(
 def _ffmpeg_escape_path(path: Path) -> str:
     value = str(path).replace("\\", "/")
     return value.replace(":", "\\:")
+
+
+def _ffmpeg_escape_text(text: str) -> str:
+    return (
+        text.replace("\\", "\\\\")
+        .replace(":", "\\:")
+        .replace("'", "\\'")
+        .replace("%", "\\%")
+    )
