@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 import re
+import string
 
 import pysubs2
 
@@ -151,14 +152,8 @@ def _build_events(subs: pysubs2.SSAFile, layout: Dict[str, object], highlight: D
             continue
 
         duration = max((line.end - line.start) / 1000.0, 0.01)
-        per_word = duration / len(words)
-        per_word = max(min(per_word, max_word), min_word)
-        durations = [per_word] * len(words)
-        total = sum(durations)
-        if total < duration:
-            durations[-1] += duration - total
-        elif total > duration:
-            durations[-1] = max(durations[-1] - (total - duration), 0.01)
+        weights = _word_weights(words, highlight)
+        durations = _allocate_karaoke_durations(duration, weights, min_word, max_word)
 
         text_with_k = _apply_karaoke(words, durations)
         text_with_k = _wrap_karaoke(text_with_k, max_chars, max_lines)
@@ -193,6 +188,60 @@ def _apply_karaoke(words: List[str], durations: Iterable[float]) -> str:
         centis = max(int(round(dur * 100)), 1)
         parts.append(f"{{\\k{centis}}}{word}")
     return " ".join(parts)
+
+
+def _word_weights(words: List[str], highlight: Dict[str, object]) -> List[float]:
+    raw_stopwords = highlight.get("stopwords", [])
+    stopwords = {
+        word.strip().lower()
+        for word in raw_stopwords
+        if isinstance(word, str) and word.strip()
+    }
+    meaning_weight = float(highlight.get("meaning_weight", 1.2))
+    stopword_weight = float(highlight.get("stopword_weight", 0.6))
+    length_weight = float(highlight.get("length_weight", 0.05))
+
+    weights: List[float] = []
+    for word in words:
+        normalized = _normalize_word(word)
+        length = max(len(normalized), 1)
+        weight = 1.0 + length_weight * length
+        if normalized and normalized in stopwords:
+            weight *= stopword_weight
+        else:
+            weight *= meaning_weight
+        weights.append(max(weight, 0.01))
+    return weights
+
+
+def _normalize_word(word: str) -> str:
+    return word.strip(string.punctuation).lower()
+
+
+def _allocate_karaoke_durations(
+    duration: float,
+    weights: List[float],
+    min_word: float,
+    max_word: float,
+) -> List[float]:
+    if not weights:
+        return []
+
+    count = len(weights)
+    average = duration / count if count else duration
+    effective_min = min(min_word, average) if min_word > 0 else 0.0
+    effective_max = max_word if max_word > 0 else duration
+
+    total_weight = sum(weights) or count
+    durations: List[float] = []
+    for weight in weights:
+        raw = duration * weight / total_weight
+        durations.append(min(max(raw, effective_min), effective_max))
+
+    total = sum(durations)
+    if durations:
+        durations[-1] = max(durations[-1] + (duration - total), 0.01)
+    return durations
 
 
 def _wrap_karaoke(text: str, max_chars: int, max_lines: int) -> str:

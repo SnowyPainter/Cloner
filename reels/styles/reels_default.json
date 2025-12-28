@@ -24,7 +24,7 @@
     "base_style": {
       "font": "Pretendard Black",
       "size": 56,
-      "color": "&H00FFFFFF",
+      "color": "&H00DADADA",
       "outline_color": "&H00000000",
       "shadow_color": "&H64000000",
       "outline": 3,
@@ -35,9 +35,13 @@
     "highlight": {
       "enabled": true,
       "mode": "karaoke",
-      "active_color": "&H0000FFFF",
-      "inactive_color": "&H00FFFFFF",
+      "active_color": "&H007AC7F5",
+      "inactive_color": "&H00DADADA",
       "word_split": "whitespace",
+      "stopwords": ["i", "the", "a", "to", "an", "of", "in", "on", "and", "or", "but"],
+      "meaning_weight": 1.25,
+      "stopword_weight": 0.6,
+      "length_weight": 0.06,
       "min_word_duration": 0.08,
       "max_word_duration": 0.2
     },
