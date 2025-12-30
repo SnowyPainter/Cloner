@@ -1,80 +1,91 @@
-# YouTube Reels MVP
+﻿# YouTube Reels Pipeline
 
-Minimal, structure-first MVP that turns a YouTube URL into a single <=60s highlight.
+## Overview
 
-## What it does
-- Input: YouTube URL
-- Output: One highlight video under 60 seconds
-- Subtitles: Uses YouTube-provided subtitles or whisper, optional NLLB translation
-- Processing: PyAV for shot detection, ffmpeg for render
-- Highlighting: Scores shots by motion + audio energy and picks the best <=60s combo
+The YouTube Reels Pipeline is a production-grade solution for generating highlight videos (≤ 60 seconds) from YouTube URLs, complete with subtitles. The pipeline leverages YouTube subtitles or Whisper transcription, and optionally supports machine translation for multilingual subtitles. This project is distributed as source code, not as a standalone executable, for maximum flexibility and alignment with studio workflows.
+
+## Rationale for Source Distribution
+
+This pipeline is intentionally distributed as source code rather than a monolithic executable to provide:
+
+- **Lightweight Setup:** Avoids large binary distributions (4–8GB executables).
+- **Flexible GPU/CUDA Support:** Seamless adaptation to your hardware and CUDA environment.
+- **Simple Model Management:** Facilitates straightforward model upgrades and customizations.
+- **Professional Workflow Integration:** Mirrors internal tools and workflows employed in professional studio environments.
+
+## Features
+
+- End-to-end highlight extraction for short-form content from a single YouTube URL.
+- Automatic subtitle handling (YouTube subtitles or Whisper transcription).
+- Optional subtitle translation using NLLB models.
+- All outputs are structured and organized under a dedicated workspace directory.
+
+## Usage Scenarios
+
+This project delivers not just code, but a solution refined by considerable engineering and design:
+
+- Save weeks of development and experimentation.
+- Leverage a pre-designed and validated pipeline architecture used in real production.
+- Benefit from comprehensive documentation, structure, and example-driven guidance.
 
 ## Requirements
-- Python 3.10+
-- `yt-dlp` and `ffmpeg` available on PATH
-- PyAV dependencies installed (ffmpeg libraries for your OS)
 
-## Install
+- **Python:** 3.11 or higher
+- **External Tools:** 
+  - `yt-dlp`
+  - `ffmpeg` (must be available in your system PATH)
+- **Python Dependencies:** 
+  - PyAV (requires compatible ffmpeg libraries for your OS)
+  - For translation functionality: `transformers`, `torch`, `sentencepiece`
+
+## Quick Start
+
+### Installation
+
 ```bash
 pip install -e .
 ```
 
-## Quick start
-```bash
-reels ingest <youtube_url>
-reels build <asset_id>
-```
+### Basic Workflow
 
-## CLI usage
-Ingest a video and generate shot data:
+#### Standard Processing
+
 ```bash
 reels ingest https://www.youtube.com/watch?v=VIDEO_ID
+reels build VIDEO_ID
 ```
-Translate subtitles during ingest:
+
+#### Ingest with Translation (Example: Korean)
+
 ```bash
 reels ingest https://www.youtube.com/watch?v=VIDEO_ID --translate ko
 ```
-Render translated subtitles on build:
+
+#### Build with Translated Subtitles
+
 ```bash
 reels build VIDEO_ID --translated-lang ko
 ```
-Translation details:
-- Model: `facebook/nllb-200-distilled-600M`
-- Language codes follow NLLB (e.g. `ko` -> `kor_Hang`, `en` -> `eng_Latn`)
 
-Build a 60s reel from an existing asset:
-```bash
-reels build YT_VIDEO_ID
-```
+**Note:**  
+- Translation uses `facebook/nllb-200-distilled-600M`.  
+- NLLB language codes are required (e.g., `ko` → `kor_Hang`, `en` → `eng_Latn`).
 
-Optional build flags:
-```bash
-reels build YT_VIDEO_ID --style reels_default --title "Main Title" --tagline "Short tagline"
-reels build YT_VIDEO_ID --watermark "MY BRAND"
-```
+## Output Structure
 
-## Output layout
-Everything lives under `workspace/` (gitignored):
-- `workspace/assets/<ASSET_ID>/source/video.mp4` (downloaded video)
+All pipeline data is stored under a `workspace` directory (which is typically `.gitignored`). Example layout for an asset with ID `<ASSET_ID>`:
+
+- `workspace/assets/<ASSET_ID>/source/video.mp4`
 - `workspace/assets/<ASSET_ID>/subtitles/original.srt`
-- `workspace/assets/<ASSET_ID>/derived/shots.json` (shot list + scores)
-- `workspace/assets/<ASSET_ID>/derived/highlight.json` (selected shots)
-- `workspace/assets/<ASSET_ID>/derived/styled.ass` (styled subtitles)
-- `workspace/assets/<ASSET_ID>/output/reel_60s.mp4` (final output)
-
-See `docs/아키텍처.md` for more details.
-
-## How shot selection works
-1. Ingest: detect shots using frame differences (visual motion) and audio energy.
-2. Each shot gets a score (motion + audio weights).
-3. Build: select the highest-score combination that fits <=60s.
-
-## Subtitles
-- Karaoke timing is generated from word durations.
-- Energy-based coloring can be enabled via `reels/styles/reels_default.json`.
-- Subtitles are clipped and time-shifted to match the selected shots.
+- `workspace/assets/<ASSET_ID>/subtitles/translated_ko.srt` (if translated)
+- `workspace/assets/<ASSET_ID>/derived/shots.json`
+- `workspace/assets/<ASSET_ID>/derived/highlight.json`
+- `workspace/assets/<ASSET_ID>/derived/styled.ass`
+- `workspace/assets/<ASSET_ID>/output/reel_60s.mp4`
 
 ## Troubleshooting
-- ffmpeg errors: confirm `ffmpeg` is on PATH.
-- PyAV errors: install ffmpeg libraries for your OS and reinstall `av`.
-- Missing subtitles: the pipeline uses YouTube subtitles only.
+
+- **ffmpeg errors:** Ensure `ffmpeg` is installed and available on your system PATH.
+- **PyAV errors:** Install the correct ffmpeg libraries for your OS, and reinstall the `av` Python package if needed.
+- **Missing subtitles:** The pipeline uses either available YouTube subtitles or Whisper transcription, depending on availability.
+
