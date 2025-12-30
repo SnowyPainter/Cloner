@@ -6,7 +6,8 @@ from typing import Optional
 import typer
 
 from reels.assets import AssetManager
-from reels.download import download_youtube, require_subtitles
+from reels.cli.output import IngestOutput, emit
+from reels.download import SubtitleError, download_youtube, require_subtitles
 from reels.utils.fs import read_json, write_json
 from reels.video.shot_detect import detect_shots
 
@@ -17,7 +18,12 @@ def ingest(youtube_url: str, workspace: Optional[Path] = None) -> str:
     manager.update_status(asset.asset_id, stage="downloading", status="running")
 
     download_youtube(youtube_url, asset.paths.source_video, asset.paths.subtitles_dir)
-    require_subtitles(asset.paths.subtitles_original)
+    try:
+        require_subtitles(asset.paths.subtitles_original)
+    except SubtitleError:
+        from reels.audio.transcribe import transcribe_to_srt
+
+        transcribe_to_srt(asset.paths.source_video, asset.paths.subtitles_original, model="small")
 
     shots = detect_shots(asset.paths.source_video)
     write_json(asset.paths.shots_json, shots)
@@ -48,4 +54,8 @@ app = typer.Typer(no_args_is_help=True)
 def run(youtube_url: str, workspace: Optional[Path] = typer.Option(None, "--workspace")) -> None:
     """Ingest a YouTube URL into an asset folder."""
     asset_id = ingest(youtube_url, workspace)
-    typer.echo(asset_id)
+    payload: IngestOutput = {
+        "schema": "reels.cli.ingest.v1",
+        "asset_id": asset_id,
+    }
+    emit(payload)

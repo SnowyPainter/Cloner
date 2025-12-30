@@ -6,6 +6,7 @@ from typing import Optional
 import typer
 
 from reels.assets import AssetManager
+from reels.cli.output import BuildOutput, emit
 from reels.subtitles import build_ass_from_srt, load_style
 from reels.utils.fs import read_json, write_json
 from reels.video.highlight import select
@@ -99,4 +100,9 @@ def run(
         tagline=tagline,
         watermark=watermark,
     )
-    typer.echo(str(output))
+    payload: BuildOutput = {
+        "schema": "reels.cli.build.v1",
+        "asset_id": asset_id,
+        "output_path": str(output),
+    }
+    emit(payload)
