@@ -39,6 +39,7 @@ def build_ass_from_srt(
     total_duration: Optional[float] = None,
     source_video: Optional[Path] = None,
     shots: Optional[List[Dict[str, float]]] = None,
+    secondary_srt_path: Optional[Path] = None,
 ) -> None:
     subs = pysubs2.load(str(srt_path))
     video = style["video"]
@@ -46,6 +47,7 @@ def build_ass_from_srt(
     layout = style["subtitles"]["layout"]
     base = style["subtitles"]["base_style"]
     highlight = style["subtitles"]["highlight"]
+    translation_cfg = style["subtitles"].get("translation", {})
     overlays = style.get("overlays", {})
     title_cfg, tagline_cfg = _resolve_overlay_positions(
         overlays, res_x, res_y, frame
@@ -60,11 +62,37 @@ def build_ass_from_srt(
             e_min, e_max = energy_bounds(energies, low_pct, high_pct)
             energy_data = (times, energies, e_min, e_max)
 
-    header = _build_header(res_x, res_y, layout, base, highlight, title_cfg, tagline_cfg)
+    header = _build_header(
+        res_x,
+        res_y,
+        layout,
+        base,
+        highlight,
+        title_cfg,
+        tagline_cfg,
+        translation_cfg if secondary_srt_path else None,
+    )
     subtitle_lines: Iterable[SubtitleLineLike] = subs
     if shots:
         subtitle_lines = _clip_subs_to_shots(subs, shots)
-    events = _build_events(subtitle_lines, layout, highlight, energy_data)
+    events = _build_events(subtitle_lines, layout, highlight, energy_data, style_name="Default")
+    if secondary_srt_path and secondary_srt_path.exists():
+        trans_subs = pysubs2.load(str(secondary_srt_path))
+        trans_lines: Iterable[SubtitleLineLike] = trans_subs
+        if shots:
+            trans_lines = _clip_subs_to_shots(trans_subs, shots)
+        offset = int(translation_cfg.get("offset_y", 0)) if isinstance(translation_cfg, dict) else 0
+        base_size = int(base.get("size", 48))
+        max_lines = int(layout.get("max_lines", 2))
+        tag = _translation_pos_tag(layout, res_x, res_y, base_size, max_lines, offset)
+        events += _build_events(
+            trans_lines,
+            layout,
+            highlight,
+            energy_data=None,
+            style_name="Translation",
+            text_prefix=tag,
+        )
     if title or tagline:
         events = _prepend_overlays(events, title, tagline, total_duration, subs)
 
@@ -79,6 +107,7 @@ def _build_header(
     highlight: Dict[str, object],
     title_cfg: Optional[Dict[str, object]],
     tagline_cfg: Optional[Dict[str, object]],
+    translation_cfg: Optional[Dict[str, object]],
 ) -> str:
     primary = highlight.get("inactive_color", base["color"])
     secondary = highlight.get("active_color", base["color"])
@@ -112,6 +141,26 @@ def _build_header(
         ),
     ]
 
+    if translation_cfg is not None:
+        scale = float(translation_cfg.get("size_scale", 0.85))
+        size = max(int(base["size"] * scale), 10)
+        lines.append(
+            "Style: Translation,{font},{size},{primary},{secondary},{outline},{shadow},{bold},{italic},0,0,100,100,0,0,1,{outline_w},{shadow_w},{align},{margin_h},{margin_h},{margin_v},1".format(
+                font=translation_cfg.get("font", base["font"]),
+                size=translation_cfg.get("size", size),
+                primary=translation_cfg.get("color", primary),
+                secondary=secondary,
+                outline=translation_cfg.get("outline_color", outline),
+                shadow=translation_cfg.get("shadow_color", shadow),
+                bold=-1 if translation_cfg.get("bold", base.get("bold", True)) else 0,
+                italic=-1 if translation_cfg.get("italic", base.get("italic", False)) else 0,
+                outline_w=translation_cfg.get("outline", base.get("outline", 3)),
+                shadow_w=translation_cfg.get("shadow", base.get("shadow", 2)),
+                align=layout.get("alignment", 5),
+                margin_h=layout.get("margin_h", 0),
+                margin_v=layout.get("margin_v", 0),
+            )
+        )
     if title_cfg:
         lines.append(
             "Style: Title,{font},{size},{primary},{secondary},{outline},{shadow},{bold},{italic},0,0,100,100,0,0,1,{outline_w},{shadow_w},{align},{margin_h},{margin_h},{margin_v},1".format(
@@ -158,6 +207,8 @@ def _build_events(
     layout: Dict[str, object],
     highlight: Dict[str, object],
     energy_data: Optional[Tuple[np.ndarray, np.ndarray, float, float]],
+    style_name: str = "Default",
+    text_prefix: str = "",
 ) -> List[str]:
     events_data: List[Tuple[int, int, str]] = []
     max_chars = int(layout.get("max_chars_per_line", 18))
@@ -207,8 +258,42 @@ def _build_events(
     for start_ms, end_ms, text_with_k in events_data:
         start = _format_time(start_ms)
         end = _format_time(end_ms)
-        events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text_with_k}")
+        events.append(f"Dialogue: 0,{start},{end},{style_name},,0,0,0,,{text_prefix}{text_with_k}")
     return events
+
+
+def _translation_pos_tag(
+    layout: Dict[str, object],
+    res_x: int,
+    res_y: int,
+    base_size: int,
+    max_lines: int,
+    offset: int,
+) -> str:
+    align = int(layout.get("alignment", 5))
+    margin_h = int(layout.get("margin_h", 0))
+    margin_v = int(layout.get("margin_v", 0))
+    line_height = max(int(base_size * 1.1), 1)
+    block_height = max(line_height * max_lines, line_height)
+    gap = max(int(base_size * 0.3), 8)
+    total_offset = block_height + gap + offset
+
+    if align in {1, 4, 7}:
+        x = margin_h
+    elif align in {2, 5, 8}:
+        x = res_x // 2
+    else:
+        x = res_x - margin_h
+
+    if align in {7, 8, 9}:
+        y = margin_v
+    elif align in {4, 5, 6}:
+        y = (res_y // 2) + margin_v
+    else:
+        y = res_y - margin_v
+
+    y = max(0, min(res_y, y + total_offset))
+    return f"{{\\an{align}\\pos({x},{y})}}"
 
 
 def _prepend_overlays(

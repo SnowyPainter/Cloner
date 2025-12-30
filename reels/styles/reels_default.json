@@ -70,6 +70,15 @@
       "min_word_duration": 0.08,
       "max_word_duration": 0.2
     },
+    "translation": {
+      "enabled": true,
+      "offset_y": 70,
+      "size_scale": 0.78,
+      "font": "Pretendard Medium",
+      "color": "&H00FFFFFF",
+      "outline": 2,
+      "shadow": 1
+    },
     "animation": {
       "entry": "none",
       "exit": "none"

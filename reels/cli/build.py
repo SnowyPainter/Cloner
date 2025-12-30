@@ -8,6 +8,7 @@ import typer
 from reels.assets import AssetManager
 from reels.cli.output import BuildOutput, emit
 from reels.subtitles import build_ass_from_srt, load_style
+from reels.subtitles.translate import target_srt_path
 from reels.utils.fs import read_json, write_json
 from reels.video.highlight import select
 from reels.video.letterbox import detect_letterbox_crop
@@ -22,6 +23,7 @@ def build(
     title: Optional[str] = None,
     tagline: Optional[str] = None,
     watermark: Optional[str] = None,
+    translated_lang: Optional[str] = None,
 ) -> Path:
     manager = AssetManager(workspace)
     asset = manager.get(asset_id)
@@ -44,6 +46,12 @@ def build(
 
     frame = style.get("frame")
     resolution = tuple(style["video"]["resolution"])
+    translated_path = None
+    if translated_lang:
+        candidate = target_srt_path(asset.paths.subtitles_dir, translated_lang)
+        if candidate.exists():
+            translated_path = candidate
+
     build_ass_from_srt(
         asset.paths.subtitles_original,
         asset.paths.subtitles_ass,
@@ -54,6 +62,7 @@ def build(
         total_duration=sum(shot["end"] - shot["start"] for shot in highlight),
         source_video=asset.paths.source_video,
         shots=highlight,
+        secondary_srt_path=translated_path,
     )
     fps = float(style["video"].get("fps", 30))
     transition_frames = shots_cfg.get("transition_frames")
@@ -90,6 +99,11 @@ def run(
     title: Optional[str] = typer.Option(None, "--title"),
     tagline: Optional[str] = typer.Option(None, "--tagline"),
     watermark: Optional[str] = typer.Option(None, "--watermark"),
+    translated_lang: Optional[str] = typer.Option(
+        None,
+        "--translated-lang",
+        help="Render translated subtitles below the original (e.g. ko).",
+    ),
 ) -> None:
     """Build a 60s highlight reel from an asset."""
     output = build(
@@ -99,6 +113,7 @@ def run(
         title=title,
         tagline=tagline,
         watermark=watermark,
+        translated_lang=translated_lang,
     )
     payload: BuildOutput = {
         "schema": "reels.cli.build.v1",
