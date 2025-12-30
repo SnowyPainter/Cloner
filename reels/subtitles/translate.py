@@ -10,6 +10,31 @@ from typing import Iterable, List, Optional
 import pysubs2
 
 CJK_LANGS = {"zh", "ja", "ko"}
+MODEL_NAME = "facebook/nllb-200-distilled-600M"
+
+LANG_MAP = {
+    "en": "eng_Latn",
+    "ko": "kor_Hang",
+    "ja": "jpn_Jpan",
+    "zh": "zho_Hans",
+    "zh-hans": "zho_Hans",
+    "zh-cn": "zho_Hans",
+    "zh-tw": "zho_Hant",
+    "zh-hk": "zho_Hant",
+    "zh-hant": "zho_Hant",
+    "ru": "rus_Cyrl",
+    "es": "spa_Latn",
+    "fr": "fra_Latn",
+    "de": "deu_Latn",
+    "pt": "por_Latn",
+    "it": "ita_Latn",
+    "vi": "vie_Latn",
+    "th": "tha_Thai",
+    "id": "ind_Latn",
+    "ar": "ara_Arab",
+    "hi": "hin_Deva",
+    "tr": "tur_Latn",
+}
 
 
 def target_srt_path(subtitles_dir: Path, target_lang: str) -> Path:
@@ -42,16 +67,19 @@ def translate_srt(
         shutil.copyfile(srt_path, output_path)
         return output_path
 
-    model_name = _resolve_model_name(normalized_source, normalized_target)
+    src_code = _resolve_nllb_code(normalized_source)
+    tgt_code = _resolve_nllb_code(normalized_target)
     logging.info(
-        "Translating subtitles with MarianMT model=%s (src=%s tgt=%s)",
-        model_name,
-        normalized_source,
-        normalized_target,
+        "Translating subtitles with NLLB model=%s (src=%s tgt=%s)",
+        MODEL_NAME,
+        src_code,
+        tgt_code,
     )
-    translations = _translate_lines(
+
+    translations = _translate_lines_nllb(
         [text for text in _iter_event_texts(subs) if text],
-        model_name,
+        src_code=src_code,
+        tgt_code=tgt_code,
         batch_size=batch_size,
     )
 
@@ -69,39 +97,48 @@ def translate_srt(
     return output_path
 
 
-def _resolve_model_name(source_lang: str, target_lang: str) -> str:
-    if not source_lang or not target_lang:
-        raise ValueError("source_lang and target_lang are required")
-    if source_lang == "en" and target_lang != "en":
-        return "Helsinki-NLP/opus-mt-en-mul"
-    if target_lang == "en" and source_lang != "en":
-        return "Helsinki-NLP/opus-mt-mul-en"
-    return f"Helsinki-NLP/opus-mt-{source_lang}-{target_lang}"
+def _resolve_nllb_code(lang: str) -> str:
+    key = _normalize_lang_code(lang)
+    if key in LANG_MAP:
+        return LANG_MAP[key]
+    raise ValueError(f"Unsupported language code for NLLB: {lang}")
 
 
-def _translate_lines(lines: List[str], model_name: str, batch_size: int = 8) -> List[str]:
+def _translate_lines_nllb(
+    lines: List[str],
+    src_code: str,
+    tgt_code: str,
+    batch_size: int = 8,
+) -> List[str]:
     if not lines:
         return []
     try:
         import torch
-        from transformers import MarianMTModel, MarianTokenizer
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
     except Exception as exc:
         raise RuntimeError(
-            "transformers, torch, and sentencepiece are required for MarianMT translation"
+            "transformers, torch, and sentencepiece are required for NLLB translation"
         ) from exc
 
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-    model = MarianMTModel.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+    model.eval()
+
+    tokenizer.src_lang = src_code
+    forced_bos = tokenizer.convert_tokens_to_ids(tgt_code)
 
     results: List[str] = []
-    model.eval()
     for batch in _chunks(lines, batch_size):
-        tokens = tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
-        tokens = {key: value.to(device) for key, value in tokens.items()}
+        tokens = tokenizer(batch, return_tensors="pt", padding=True, truncation=True).to(device)
         with torch.no_grad():
-            generated = model.generate(**tokens)
+            generated = model.generate(
+                **tokens,
+                forced_bos_token_id=forced_bos,
+                max_new_tokens=128,
+                num_beams=4,
+            )
         results.extend(tokenizer.batch_decode(generated, skip_special_tokens=True))
     return results
 
@@ -150,12 +187,12 @@ def _detect_source_lang(sample_text: str) -> str:
     return "en"
 
 
-def _normalize_lang_code(lang: Optional[str]) -> Optional[str]:
+def _normalize_lang_code(lang: Optional[str]) -> str:
     if not lang:
-        return None
+        return "en"
     cleaned = lang.strip().lower().replace("_", "-")
     if cleaned.startswith("zh-") or cleaned in {"zh-cn", "zh-hans", "zh-hant", "zh-tw", "zh-hk"}:
-        return "zh"
+        return cleaned
     if cleaned.startswith("pt-"):
         return "pt"
     if cleaned.startswith("en-"):

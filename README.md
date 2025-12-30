@@ -5,7 +5,7 @@ Minimal, structure-first MVP that turns a YouTube URL into a single <=60s highli
 ## What it does
 - Input: YouTube URL
 - Output: One highlight video under 60 seconds
-- Subtitles: Uses YouTube-provided subtitles or whisper, optional MarianMT translation
+- Subtitles: Uses YouTube-provided subtitles or whisper, optional NLLB translation
 - Processing: PyAV for shot detection, ffmpeg for render
 - Highlighting: Scores shots by motion + audio energy and picks the best <=60s combo
 
@@ -34,6 +34,13 @@ Translate subtitles during ingest:
 ```bash
 reels ingest https://www.youtube.com/watch?v=VIDEO_ID --translate ko
 ```
+Render translated subtitles on build:
+```bash
+reels build VIDEO_ID --translated-lang ko
+```
+Translation details:
+- Model: `facebook/nllb-200-distilled-600M`
+- Language codes follow NLLB (e.g. `ko` -> `kor_Hang`, `en` -> `eng_Latn`)
 
 Build a 60s reel from an existing asset:
 ```bash
