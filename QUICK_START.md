@@ -52,6 +52,20 @@ reels build VIDEO_ID --translated-lang ko
 
 ---
 
+## CLI Options
+
+### `reels ingest`
+- `--workspace <path>`
+- `--translate <lang>`
+
+### `reels build`
+- `--workspace <path>`
+- `--style <style_id>`
+- `--title <text>`
+- `--tagline <text>`
+- `--watermark <text>`
+- `--translated-lang <lang>`
+
 ## 📂 Output
 
 Output video:  
@@ -62,3 +76,5 @@ workspace/assets/<ASSET_ID>/output/reel_60s.mp4
 _All other files (subtitles, metadata, etc.) are stored under `workspace/assets/<ASSET_ID>/`._
 
 ---
+
+

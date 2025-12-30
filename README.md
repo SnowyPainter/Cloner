@@ -71,6 +71,19 @@ reels build VIDEO_ID --translated-lang ko
 - Translation uses `facebook/nllb-200-distilled-600M`.  
 - NLLB language codes are required (e.g., `ko` → `kor_Hang`, `en` → `eng_Latn`).
 
+## CLI Options
+
+### `reels ingest`
+- `--workspace <path>`: Set a custom workspace root.
+- `--translate <lang>`: Translate subtitles during ingest (e.g., `ko`, `ja`, `en`).
+
+### `reels build`
+- `--workspace <path>`: Set a custom workspace root.
+- `--style <style_id>`: Subtitle style preset (default: `reels_default`).
+- `--title <text>`: Add a title overlay.
+- `--tagline <text>`: Add a tagline overlay.
+- `--watermark <text>`: Add a watermark text overlay.
+- `--translated-lang <lang>`: Render translated subtitles below the original.
 ## Output Structure
 
 All pipeline data is stored under a `workspace` directory (which is typically `.gitignored`). Example layout for an asset with ID `<ASSET_ID>`:
@@ -88,4 +101,5 @@ All pipeline data is stored under a `workspace` directory (which is typically `.
 - **ffmpeg errors:** Ensure `ffmpeg` is installed and available on your system PATH.
 - **PyAV errors:** Install the correct ffmpeg libraries for your OS, and reinstall the `av` Python package if needed.
 - **Missing subtitles:** The pipeline uses either available YouTube subtitles or Whisper transcription, depending on availability.
+
 
