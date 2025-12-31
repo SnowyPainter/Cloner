@@ -16,3 +16,6 @@ def main() -> None:
 
 app.command("ingest")(ingest_cmd.run)
 app.command("build")(build_cmd.run)
+
+if __name__ == "__main__":
+    app()

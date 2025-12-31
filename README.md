@@ -84,6 +84,12 @@ reels build VIDEO_ID --translated-lang ko
 - `--tagline <text>`: Add a tagline overlay.
 - `--watermark <text>`: Add a watermark text overlay.
 - `--translated-lang <lang>`: Render draft-translated subtitles below the original.
+
+## CLI Output
+
+- Final command results are JSON on stdout.
+- Logs are JSON on stderr.
+- Output schema is defined in `docs/cli_output_schema.json`.
 ## Output Structure
 
 All pipeline data is stored under a `workspace` directory (which is typically `.gitignored`). Example layout for an asset with ID `<ASSET_ID>`:

@@ -102,7 +102,7 @@ def run(
     translated_lang: Optional[str] = typer.Option(
         None,
         "--translated-lang",
-        help="Render translated subtitles below the original (e.g. ko).",
+        help="Render draft-translated subtitles below the original (e.g. ko).",
     ),
 ) -> None:
     """Build a 60s highlight reel from an asset."""

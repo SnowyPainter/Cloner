@@ -72,7 +72,7 @@ def run(
     translate: Optional[str] = typer.Option(
         None,
         "--translate",
-        help="Translate subtitles to target language (MarianMT).",
+        help="Create a draft translation for subtitles (e.g. ko).",
     ),
 ) -> None:
     """Ingest a YouTube URL into an asset folder."""
