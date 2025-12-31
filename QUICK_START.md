@@ -18,7 +18,7 @@
 - **Python:** 3.10+
 - **Tools:** `yt-dlp` and `ffmpeg` on your `PATH`
 - **PyAV deps:** ffmpeg libraries for your OS
-- **Argos translation (optional):**  
+- **Draft translation (optional):**  
   `argostranslate`
 
 ---
@@ -40,13 +40,13 @@ reels build VIDEO_ID
 
 ---
 
-## 🌏 With Translation
+## 🌏 With Draft Translation
 
 ```bash
-# Ingest and translate to Korean (ko)
+# Ingest and create a draft translation to Korean (ko)
 reels ingest https://www.youtube.com/watch?v=VIDEO_ID --translate ko
 
-# Build with translated subtitles
+# Build with draft-translated subtitles
 reels build VIDEO_ID --translated-lang ko
 ```
 
@@ -56,7 +56,7 @@ reels build VIDEO_ID --translated-lang ko
 
 ### `reels ingest`
 - `--workspace <path>`
-- `--translate <lang>`
+- `--translate <lang>` (draft translation)
 
 ### `reels build`
 - `--workspace <path>`
@@ -64,7 +64,7 @@ reels build VIDEO_ID --translated-lang ko
 - `--title <text>`
 - `--tagline <text>`
 - `--watermark <text>`
-- `--translated-lang <lang>`
+- `--translated-lang <lang>` (draft translation)
 
 ## 📂 Output
 

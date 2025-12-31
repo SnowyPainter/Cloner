@@ -17,7 +17,7 @@ This pipeline is intentionally distributed as source code rather than a monolith
 
 - End-to-end highlight extraction for short-form content from a single YouTube URL.
 - Automatic subtitle handling (YouTube subtitles or Whisper transcription).
-- Optional subtitle translation using Argos Translate.
+- Optional subtitle translation for draft editing (rough machine translation).
 - All outputs are structured and organized under a dedicated workspace directory.
 
 ## Usage Scenarios
@@ -36,7 +36,7 @@ This project delivers not just code, but a solution refined by considerable engi
   - `ffmpeg` (must be available in your system PATH)
 - **Python Dependencies:** 
   - PyAV (requires compatible ffmpeg libraries for your OS)
-  - For translation functionality: `argostranslate`
+  - For draft translation functionality: `argostranslate`
 
 ## Quick Start
 
@@ -55,7 +55,7 @@ reels ingest https://www.youtube.com/watch?v=VIDEO_ID
 reels build VIDEO_ID
 ```
 
-#### Ingest with Translation (Example: Korean)
+#### Ingest with Draft Translation (Example: Korean)
 
 ```bash
 reels ingest https://www.youtube.com/watch?v=VIDEO_ID --translate ko
@@ -68,14 +68,14 @@ reels build VIDEO_ID --translated-lang ko
 ```
 
 **Note:**  
-- Translation uses Argos Translate and will download language packs on demand.  
+- Translation is intended as a draft for editing and will download Argos language packs on demand.  
 - Standard language codes are supported (e.g., `ko`, `ja`, `en`, `zh`).
 
 ## CLI Options
 
 ### `reels ingest`
 - `--workspace <path>`: Set a custom workspace root.
-- `--translate <lang>`: Translate subtitles during ingest (e.g., `ko`, `ja`, `en`).
+- `--translate <lang>`: Create a draft translation during ingest (e.g., `ko`, `ja`, `en`).
 
 ### `reels build`
 - `--workspace <path>`: Set a custom workspace root.
@@ -83,14 +83,14 @@ reels build VIDEO_ID --translated-lang ko
 - `--title <text>`: Add a title overlay.
 - `--tagline <text>`: Add a tagline overlay.
 - `--watermark <text>`: Add a watermark text overlay.
-- `--translated-lang <lang>`: Render translated subtitles below the original.
+- `--translated-lang <lang>`: Render draft-translated subtitles below the original.
 ## Output Structure
 
 All pipeline data is stored under a `workspace` directory (which is typically `.gitignored`). Example layout for an asset with ID `<ASSET_ID>`:
 
 - `workspace/assets/<ASSET_ID>/source/video.mp4`
 - `workspace/assets/<ASSET_ID>/subtitles/original.srt`
-- `workspace/assets/<ASSET_ID>/subtitles/translated_ko.srt` (if translated)
+- `workspace/assets/<ASSET_ID>/subtitles/translated_ko.srt` (if draft-translated)
 - `workspace/assets/<ASSET_ID>/derived/shots.json`
 - `workspace/assets/<ASSET_ID>/derived/highlight.json`
 - `workspace/assets/<ASSET_ID>/derived/styled.ass`
