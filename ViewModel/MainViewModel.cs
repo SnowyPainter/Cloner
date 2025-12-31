@@ -182,6 +182,8 @@ namespace Cloner.ViewModel
             await _cli.RunAsync(args);
 
             RefreshAssets();
+
+            AppendLog("[INGEST] complete");
             IsProcessing = false;
         }
 

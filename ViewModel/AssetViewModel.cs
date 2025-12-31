@@ -81,9 +81,6 @@ namespace Cloner.ViewModel
 
         public string CreatedAtText =>
             Metadata != null ? Metadata.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—";
-        // AssetViewModel.cs 내부
-
-        // 1. Command 정의 (제네릭 <AssetViewModel> 제거)
         public ICommand OpenOutputCommand => new RelayCommand(ExecuteOpenOutput);
 
         private void ExecuteOpenOutput(object? parameter)

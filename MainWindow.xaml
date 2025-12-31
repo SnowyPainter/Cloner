@@ -11,7 +11,7 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="200"/>
+            <RowDefinition Height="130"/>
         </Grid.RowDefinitions>
 
         <!-- TOP SECTION -->
@@ -29,7 +29,7 @@
             <ScrollViewer Grid.Column="0" Margin="0,0,20,0" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
 
-                    <TextBlock Text="🚀 Pipeline Control"
+                    <TextBlock Text="Pipeline Control"
                            FontSize="20"
                            FontWeight="Bold"
                            Foreground="{StaticResource TextPrimaryBrush}"
@@ -66,9 +66,26 @@
                                   Height="30"
                                   Margin="0,0,0,10"/>
 
-                            <Button Content="Ingest Video"
-                                Style="{StaticResource PrimaryButtonStyle}"
-                                Command="{Binding IngestCommand}"/>
+                            <Button Command="{Binding IngestCommand}"
+        Height="35">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+                                        <Setter Property="Content" Value="Ingest Video"/>
+
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsProcessing}" Value="True">
+                                                <Setter Property="Content" Value="🚀 Ingesting..."/>
+                                                <Setter Property="Opacity" Value="0.7"/>
+                                                <Setter Property="Cursor" Value="Wait"/>
+                                            </DataTrigger>
+
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
                     </Border>
 
@@ -116,10 +133,27 @@
                                       Style="{StaticResource ModernComboBox}"
                                   IsEnabled="{Binding AvailableSrts.Count}"/>
 
-                            <Button Content="Build Reel (60s)"
-                                Style="{StaticResource PrimaryButtonStyle}"
-                                Background="#10b981"
-                                Command="{Binding BuildCommand}"/>
+                            <Button Command="{Binding BuildCommand}"
+        Background="#10b981"
+        Height="40">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+                                        <Setter Property="Content" Value="Build Reel (60s)"/>
+
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsProcessing}" Value="True">
+                                                <Setter Property="Content" Value="⏳ Building Reel..."/>
+                                                <Setter Property="Opacity" Value="0.7"/>
+                                                <Setter Property="Cursor" Value="Wait"/>
+                                            </DataTrigger>
+
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Background" Value="#34d399"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
                     </Border>
 
@@ -133,7 +167,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="📂 Workspace Assets"
+                <TextBlock Text="Workspace Assets"
                            FontSize="20"
                            FontWeight="Bold"
                            Foreground="{StaticResource TextPrimaryBrush}"
@@ -233,9 +267,8 @@
                     </StackPanel>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
-                      Visibility="{Binding SelectedAsset, Converter={StaticResource NotNullToVisibilityConverter}}">
+                      Visibility="{Binding SelectedAsset, Converter={StaticResource NotNullToVisibilityConverter}}" Padding="10">
                         <StackPanel DataContext="{Binding SelectedAsset}">
-
                             <TextBlock Text="Asset Details" 
                            Foreground="{StaticResource PrimaryBrush}" 
                            FontSize="12" FontWeight="Bold" Margin="0,0,0,5" />
@@ -349,7 +382,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="📋 Console Logs"
+                <TextBlock Text="Console Logs"
                            FontSize="16"
                            FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"
