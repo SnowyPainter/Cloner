@@ -17,7 +17,7 @@ This pipeline is intentionally distributed as source code rather than a monolith
 
 - End-to-end highlight extraction for short-form content from a single YouTube URL.
 - Automatic subtitle handling (YouTube subtitles or Whisper transcription).
-- Optional subtitle translation using NLLB models.
+- Optional subtitle translation using Argos Translate.
 - All outputs are structured and organized under a dedicated workspace directory.
 
 ## Usage Scenarios
@@ -36,7 +36,7 @@ This project delivers not just code, but a solution refined by considerable engi
   - `ffmpeg` (must be available in your system PATH)
 - **Python Dependencies:** 
   - PyAV (requires compatible ffmpeg libraries for your OS)
-  - For translation functionality: `transformers`, `torch`, `sentencepiece`
+  - For translation functionality: `argostranslate`
 
 ## Quick Start
 
@@ -68,8 +68,8 @@ reels build VIDEO_ID --translated-lang ko
 ```
 
 **Note:**  
-- Translation uses `facebook/nllb-200-distilled-600M`.  
-- NLLB language codes are required (e.g., `ko` → `kor_Hang`, `en` → `eng_Latn`).
+- Translation uses Argos Translate and will download language packs on demand.  
+- Standard language codes are supported (e.g., `ko`, `ja`, `en`, `zh`).
 
 ## CLI Options
 

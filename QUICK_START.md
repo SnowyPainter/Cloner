@@ -18,8 +18,8 @@
 - **Python:** 3.10+
 - **Tools:** `yt-dlp` and `ffmpeg` on your `PATH`
 - **PyAV deps:** ffmpeg libraries for your OS
-- **NLLB translation (optional):**  
-  `transformers`, `torch`, `sentencepiece`
+- **Argos translation (optional):**  
+  `argostranslate`
 
 ---
 

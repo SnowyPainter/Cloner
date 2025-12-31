@@ -10,31 +10,6 @@ from typing import Iterable, List, Optional
 import pysubs2
 
 CJK_LANGS = {"zh", "ja", "ko"}
-MODEL_NAME = "facebook/nllb-200-distilled-600M"
-
-LANG_MAP = {
-    "en": "eng_Latn",
-    "ko": "kor_Hang",
-    "ja": "jpn_Jpan",
-    "zh": "zho_Hans",
-    "zh-hans": "zho_Hans",
-    "zh-cn": "zho_Hans",
-    "zh-tw": "zho_Hant",
-    "zh-hk": "zho_Hant",
-    "zh-hant": "zho_Hant",
-    "ru": "rus_Cyrl",
-    "es": "spa_Latn",
-    "fr": "fra_Latn",
-    "de": "deu_Latn",
-    "pt": "por_Latn",
-    "it": "ita_Latn",
-    "vi": "vie_Latn",
-    "th": "tha_Thai",
-    "id": "ind_Latn",
-    "ar": "ara_Arab",
-    "hi": "hin_Deva",
-    "tr": "tur_Latn",
-}
 
 
 def target_srt_path(subtitles_dir: Path, target_lang: str) -> Path:
@@ -49,6 +24,8 @@ def translate_srt(
     target_lang: str,
     source_lang: Optional[str] = None,
     batch_size: int = 8,
+    audio_path: Optional[Path] = None,
+    whisper_model: str = "small",
 ) -> Path:
     if output_path.exists():
         return output_path
@@ -58,25 +35,43 @@ def translate_srt(
     normalized_target = _normalize_lang_code(target_lang)
     normalized_source = _normalize_lang_code(source_lang) if source_lang else None
 
-    subs = pysubs2.load(str(srt_path))
-    if not normalized_source:
-        normalized_source = _detect_source_lang(_collect_sample_texts(subs))
+    subs = None
+    used_whisper = False
+    if audio_path:
+        try:
+            subs = _translate_with_whisper(audio_path, normalized_target, whisper_model)
+            normalized_source = "en"
+            used_whisper = True
+        except Exception as exc:
+            logging.warning("faster-whisper translation failed; falling back to Argos: %s", exc)
+            subs = None
+
+    if subs is None:
+        subs = pysubs2.load(str(srt_path))
+        if not normalized_source:
+            normalized_source = _detect_source_lang(_collect_sample_texts(subs))
 
     if normalized_source == normalized_target:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(srt_path, output_path)
+        if used_whisper:
+            for event in subs:
+                text = _normalize_event_text(event.text)
+                if text:
+                    event.text = _postprocess_text(text, normalized_target).replace("\n", r"\N")
+            subs.save(str(output_path), format_="srt")
+        else:
+            shutil.copyfile(srt_path, output_path)
         return output_path
 
-    src_code = _resolve_nllb_code(normalized_source)
-    tgt_code = _resolve_nllb_code(normalized_target)
+    src_code = _resolve_argos_code(normalized_source)
+    tgt_code = _resolve_argos_code(normalized_target)
     logging.info(
-        "Translating subtitles with NLLB model=%s (src=%s tgt=%s)",
-        MODEL_NAME,
+        "Translating subtitles with Argos Translate (src=%s tgt=%s)",
         src_code,
         tgt_code,
     )
 
-    translations = _translate_lines_nllb(
+    translations = _translate_lines_argos(
         [text for text in _iter_event_texts(subs) if text],
         src_code=src_code,
         tgt_code=tgt_code,
@@ -97,14 +92,14 @@ def translate_srt(
     return output_path
 
 
-def _resolve_nllb_code(lang: str) -> str:
+def _resolve_argos_code(lang: str) -> str:
     key = _normalize_lang_code(lang)
-    if key in LANG_MAP:
-        return LANG_MAP[key]
-    raise ValueError(f"Unsupported language code for NLLB: {lang}")
+    if key.startswith("zh"):
+        return "zh"
+    return key
 
 
-def _translate_lines_nllb(
+def _translate_lines_argos(
     lines: List[str],
     src_code: str,
     tgt_code: str,
@@ -113,34 +108,78 @@ def _translate_lines_nllb(
     if not lines:
         return []
     try:
-        import torch
-        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+        from argostranslate import package, translate
     except Exception as exc:
-        raise RuntimeError(
-            "transformers, torch, and sentencepiece are required for NLLB translation"
-        ) from exc
+        raise RuntimeError("argostranslate is required for subtitle translation") from exc
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
-
-    tokenizer.src_lang = src_code
-    forced_bos = tokenizer.convert_tokens_to_ids(tgt_code)
+    _ensure_argos_package(src_code, tgt_code, package, translate)
+    installed_languages = translate.get_installed_languages()
+    from_lang = next((lang for lang in installed_languages if lang.code == src_code), None)
+    to_lang = next((lang for lang in installed_languages if lang.code == tgt_code), None)
+    if not from_lang or not to_lang:
+        raise RuntimeError(f"Argos Translate language not installed: {src_code}->{tgt_code}")
+    translator = from_lang.get_translation(to_lang)
+    if translator is None:
+        raise RuntimeError(f"Argos Translate package missing for {src_code}->{tgt_code}")
 
     results: List[str] = []
     for batch in _chunks(lines, batch_size):
-        tokens = tokenizer(batch, return_tensors="pt", padding=True, truncation=True).to(device)
-        with torch.no_grad():
-            generated = model.generate(
-                **tokens,
-                forced_bos_token_id=forced_bos,
-                max_new_tokens=128,
-                num_beams=4,
-            )
-        results.extend(tokenizer.batch_decode(generated, skip_special_tokens=True))
+        results.extend(translator.translate(line) for line in batch)
     return results
+
+
+def _translate_with_whisper(
+    video_path: Path,
+    target_lang: str,
+    model: str,
+) -> pysubs2.SSAFile:
+    try:
+        from faster_whisper import WhisperModel
+    except Exception as exc:
+        raise RuntimeError("faster-whisper package is required for audio translation") from exc
+
+    task = "translate"
+    if target_lang != "en":
+        logging.info("Whisper translate outputs English only; will translate to %s with Argos", target_lang)
+
+    whisper_model = WhisperModel(model, device="cpu", compute_type="int8")
+    segments, _info = whisper_model.transcribe(str(video_path), task=task)
+
+    subs = pysubs2.SSAFile()
+    for segment in segments:
+        start = int(round(float(getattr(segment, "start", 0.0)) * 1000.0))
+        end = int(round(float(getattr(segment, "end", 0.0)) * 1000.0))
+        text = str(getattr(segment, "text", "")).strip()
+        subs.append(pysubs2.SSAEvent(start=start, end=end, text=text))
+    return subs
+
+
+def _ensure_argos_package(src_code: str, tgt_code: str, package, translate) -> None:
+    try:
+        get_translation_from_codes = getattr(translate, "get_translation_from_codes", None)
+        if get_translation_from_codes and get_translation_from_codes(src_code, tgt_code):
+            return
+    except Exception:
+        pass
+
+    installed = translate.get_installed_languages()
+    for lang in installed:
+        if lang.code != src_code:
+            continue
+        try:
+            if lang.get_translation(tgt_code):
+                return
+        except Exception:
+            continue
+
+    available = package.get_available_packages()
+    match = next(
+        (pkg for pkg in available if pkg.from_code == src_code and pkg.to_code == tgt_code),
+        None,
+    )
+    if not match:
+        raise RuntimeError(f"No Argos Translate package for {src_code}->{tgt_code}")
+    package.install_from_path(match.download())
 
 
 def _iter_event_texts(subs: Iterable[pysubs2.SSAEvent]) -> Iterable[str]:

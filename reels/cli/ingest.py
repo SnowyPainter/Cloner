@@ -33,7 +33,12 @@ def ingest(
         from reels.subtitles.translate import target_srt_path, translate_srt
 
         translated_path = target_srt_path(asset.paths.subtitles_dir, translate_lang)
-        translate_srt(asset.paths.subtitles_original, translated_path, target_lang=translate_lang)
+        translate_srt(
+            asset.paths.subtitles_original,
+            translated_path,
+            target_lang=translate_lang,
+            audio_path=asset.paths.source_video,
+        )
 
     shots = detect_shots(asset.paths.source_video)
     write_json(asset.paths.shots_json, shots)
