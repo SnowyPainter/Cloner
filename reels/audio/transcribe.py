@@ -10,23 +10,24 @@ def transcribe_to_srt(video_path: Path, srt_path: Path, model: str = "small") ->
         return srt_path
 
     try:
-        import whisper
+        from faster_whisper import WhisperModel
     except Exception as exc:
-        raise RuntimeError("openai-whisper package is required to transcribe subtitles") from exc
+        raise RuntimeError("faster-whisper package is required to transcribe subtitles") from exc
 
-    logging.info("Transcribing subtitles with whisper model=%s", model)
+    logging.info("Transcribing subtitles with faster-whisper model=%s", model)
     srt_path.parent.mkdir(parents=True, exist_ok=True)
-    result = whisper.load_model(model).transcribe(str(video_path))
-    _write_srt(srt_path, result.get("segments", []))
+    whisper_model = WhisperModel(model, device="cpu", compute_type="int8")
+    segments, _info = whisper_model.transcribe(str(video_path))
+    _write_srt(srt_path, segments)
     return srt_path
 
 
-def _write_srt(path: Path, segments: Iterable[dict]) -> None:
+def _write_srt(path: Path, segments: Iterable) -> None:
     lines: list[str] = []
     for index, segment in enumerate(segments, start=1):
-        start = _format_timestamp(float(segment.get("start", 0.0)))
-        end = _format_timestamp(float(segment.get("end", 0.0)))
-        text = str(segment.get("text", "")).strip()
+        start = _format_timestamp(float(getattr(segment, "start", 0.0)))
+        end = _format_timestamp(float(getattr(segment, "end", 0.0)))
+        text = str(getattr(segment, "text", "")).strip()
         lines.append(str(index))
         lines.append(f"{start} --> {end}")
         lines.append(text)
