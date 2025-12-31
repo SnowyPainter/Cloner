@@ -3,10 +3,370 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Cloner"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="YouTube Reels Pipeline"
+        Height="750" Width="1100"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="200"/>
+        </Grid.RowDefinitions>
+
+        <!-- TOP SECTION -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360"/>
+                <!-- Control -->
+                <ColumnDefinition Width="*"/>
+                <!-- Assets -->
+                <ColumnDefinition Width="320"/>
+                <!-- Details -->
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT PANEL: INGEST & BUILD -->
+            <ScrollViewer Grid.Column="0" Margin="0,0,20,0" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+
+                    <TextBlock Text="🚀 Pipeline Control"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,20"/>
+
+                    <!-- INGEST SECTION -->
+                    <Border Background="{StaticResource SurfaceBrush}"
+                        CornerRadius="8"
+                        Padding="15"
+                        Margin="0,0,0,15">
+
+                        <StackPanel>
+                            <TextBlock Text="Ingest"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,10"/>
+
+                            <TextBlock Text="YouTube URL"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"/>
+
+                            <TextBox Style="{StaticResource ModernTextBox}"
+                                 Margin="0,5,0,10"
+                                 Text="{Binding YoutubeUrl, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBlock Text="Translate Language"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"
+                                   Margin="0,0,0,5"/>
+
+                            <ComboBox ItemsSource="{Binding AvailableTranslateLangs}"
+                                  SelectedItem="{Binding SelectedTranslateLang}"
+                                      Style="{StaticResource ModernComboBox}"
+                                  Height="30"
+                                  Margin="0,0,0,10"/>
+
+                            <Button Content="Ingest Video"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Command="{Binding IngestCommand}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- BUILD SECTION -->
+                    <Border Background="{StaticResource SurfaceBrush}"
+                        CornerRadius="8"
+                        Padding="15">
+
+                        <StackPanel>
+                            <TextBlock Text="Build Settings"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,10"/>
+
+                            <TextBlock Text="Title"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"/>
+                            <TextBox Style="{StaticResource ModernTextBox}"
+                                 Margin="0,5,0,10"
+                                 Text="{Binding BuildTitle, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBlock Text="Tagline"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"/>
+                            <TextBox Style="{StaticResource ModernTextBox}"
+                                 Margin="0,5,0,10"
+                                 Text="{Binding BuildTagline, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBlock Text="Watermark"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"/>
+                            <TextBox Style="{StaticResource ModernTextBox}"
+                                 Margin="0,5,0,10"
+                                 Text="{Binding Watermark, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <TextBlock Text="Draft Translated Subtitle"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"/>
+
+                            <ComboBox ItemsSource="{Binding AvailableSrts}"
+                                  SelectedItem="{Binding SelectedSrt}"
+                                  DisplayMemberPath="DisplayName"
+                                  Height="30"
+                                  Margin="0,5,0,15"
+                                      Style="{StaticResource ModernComboBox}"
+                                  IsEnabled="{Binding AvailableSrts.Count}"/>
+
+                            <Button Content="Build Reel (60s)"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Background="#10b981"
+                                Command="{Binding BuildCommand}"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- MIDDLE PANEL: WORKSPACE ASSETS -->
+            <Grid Grid.Column="1" Margin="0,0,20,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="📂 Workspace Assets"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,20"/>
+
+                <ScrollViewer Grid.Row="1">
+                    <ItemsControl ItemsSource="{Binding Assets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="AssetCard"
+                                        Width="160"
+                                        Margin="0,0,10,10"
+                                        Padding="8"
+                                        CornerRadius="8"
+                                        Background="{StaticResource SurfaceBrush}"
+                                        BorderThickness="2"
+                                        Cursor="Hand">
+
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                                    <Setter Property="Background" Value="#2d3748"/>
+                                                </DataTrigger>
+
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                                                        <Condition Binding="{Binding IsSelected}" Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+
+                                    <Border.InputBindings>
+                                        <MouseBinding MouseAction="LeftClick"
+                                                      Command="{Binding DataContext.SelectAssetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding}" />
+                                    </Border.InputBindings>
+
+                                    <StackPanel>
+                                        <Border Background="#334155"
+                                                Height="80"
+                                                CornerRadius="4"
+                                                Margin="0,0,0,8">
+                                            <TextBlock Text="Thumbnail"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="#475569"
+                                                       FontSize="11"/>
+                                        </Border>
+
+                                        <TextBlock Text="{Binding Title}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                        <Ellipse Width="8" Height="8" 
+                                                 Fill="{StaticResource PrimaryBrush}" 
+                                                 HorizontalAlignment="Right" 
+                                                 Margin="0,5,0,0"
+                                                 Visibility="{Binding IsSelected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- RIGHT PANEL: ASSET DETAILS -->
+            <Border Grid.Column="2"
+        Background="{StaticResource SurfaceBrush}"
+        CornerRadius="12"
+        BorderBrush="{StaticResource BorderBrush}"
+        BorderThickness="1"
+        Padding="0">
+                <Grid>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{Binding SelectedAsset, Converter={StaticResource NullToVisibilityConverter}}">
+                        <TextBlock Text="🎞" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10" Opacity="0.3"/>
+                        <TextBlock Text="Select an asset to view details"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="13"
+                       FontStyle="Italic"/>
+                    </StackPanel>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding SelectedAsset, Converter={StaticResource NotNullToVisibilityConverter}}">
+                        <StackPanel DataContext="{Binding SelectedAsset}">
+
+                            <TextBlock Text="Asset Details" 
+                           Foreground="{StaticResource PrimaryBrush}" 
+                           FontSize="12" FontWeight="Bold" Margin="0,0,0,5" />
+                            <TextBlock Text="{Binding Title}" 
+                           Foreground="{StaticResource TextPrimaryBrush}" 
+                           FontSize="20" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,15"/>
+
+                            <Border Background="#2d3748" CornerRadius="8" Padding="15" Margin="0,0,0,20">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="DURATION" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding DurationText}" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="SOURCE" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding Source}" Foreground="White" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="CREATED AT" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding CreatedAtText}" Foreground="White" FontSize="13"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Identifier" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <Grid Margin="0,0,0,20">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                                    <TextBlock Text="ID:" Foreground="{StaticResource TextSecondaryBrush}" Width="40" FontSize="11"/>
+                                    <TextBlock Text="{Binding AssetId}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" FontFamily="Consolas"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Orientation="Horizontal">
+                                    <TextBlock Text="Path:" Foreground="{StaticResource TextSecondaryBrush}" Width="40" FontSize="11"/>
+                                    <TextBlock Text="{Binding FolderPath}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" MaxWidth="220"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Available Subtitles" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <ItemsControl ItemsSource="{Binding AvailableSrts}" Margin="0,0,0,20">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource BorderBrush}" 
+                                    CornerRadius="12" 
+                                    Padding="10,4" 
+                                    Margin="0,0,6,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Srt" Foreground="{StaticResource PrimaryBrush}" FontSize="10" Margin="0,0,5,0" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding LangCode}" Foreground="White" FontSize="11" VerticalAlignment="Center" TextAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Separator Background="{StaticResource BorderBrush}" Margin="0,10,0,20"/>
+
+                            <Border Background="#1a202c" CornerRadius="10" Padding="15">
+                                <StackPanel>
+                                    <TextBlock Text="Build Status" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,10"/>
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="10" Height="10" 
+                                         Fill="{Binding IsBuilt, Converter={StaticResource BoolToStatusBrushConverter}}" 
+                                         Margin="0,0,10,0">
+                                                <Ellipse.Effect>
+                                                    <BlurEffect Radius="4"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding IsBuilt, Converter={StaticResource BoolToBuildStatusTextConverter}}" 
+                                           Foreground="White" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                                        </StackPanel>
+
+                                        <Button Content="Open Result" 
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Padding="12,5" FontSize="11"
+                                        IsEnabled="{Binding IsBuilt}"
+                                        Command="{Binding OpenOutputCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- BOTTOM SECTION: CONSOLE LOGS -->
+        <Border Grid.Row="1" 
+                Background="{StaticResource SurfaceBrush}"
+                CornerRadius="8"
+                Padding="15">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="📋 Console Logs"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,10"/>
+
+                <TextBox Grid.Row="1"
+                         Text="{Binding ConsoleLogs}"
+                         IsReadOnly="True"
+                         Background="Black"
+                         Foreground="#22c55e"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         VerticalScrollBarVisibility="Auto"
+                         TextWrapping="Wrap"
+                         Padding="10"/>
+            </Grid>
+        </Border>
 
     </Grid>
 </Window>

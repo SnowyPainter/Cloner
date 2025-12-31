@@ -447,3 +447,8 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+*.dll
+*.exe
+*.json
+cache/

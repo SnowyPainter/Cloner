@@ -6,6 +6,38 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="docs\**" />
+    <Compile Remove="python\**" />
+    <Compile Remove="reels\**" />
+    <Compile Remove="wheels\**" />
+    <Compile Remove="workspace\**" />
+    <Compile Remove="youtube_reels.egg-info\**" />
+    <EmbeddedResource Remove="docs\**" />
+    <EmbeddedResource Remove="python\**" />
+    <EmbeddedResource Remove="reels\**" />
+    <EmbeddedResource Remove="wheels\**" />
+    <EmbeddedResource Remove="workspace\**" />
+    <EmbeddedResource Remove="youtube_reels.egg-info\**" />
+    <None Remove="docs\**" />
+    <None Remove="python\**" />
+    <None Remove="reels\**" />
+    <None Remove="wheels\**" />
+    <None Remove="workspace\**" />
+    <None Remove="youtube_reels.egg-info\**" />
+    <Page Remove="docs\**" />
+    <Page Remove="python\**" />
+    <Page Remove="reels\**" />
+    <Page Remove="wheels\**" />
+    <Page Remove="workspace\**" />
+    <Page Remove="youtube_reels.egg-info\**" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="echo Copying build output to project root...&#xA;xcopy /Y /E /I /D &quot;$(TargetDir)*&quot; &quot;$(ProjectDir)&quot;&#xA;" />
+  </Target>
 
 </Project>

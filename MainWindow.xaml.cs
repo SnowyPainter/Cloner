@@ -19,6 +19,7 @@ namespace Cloner
         public MainWindow()
         {
             InitializeComponent();
+            this.DataContext = new ViewModel.MainViewModel();
         }
     }
 }
