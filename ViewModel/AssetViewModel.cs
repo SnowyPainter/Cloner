@@ -82,6 +82,53 @@ namespace Cloner.ViewModel
         public string CreatedAtText =>
             Metadata != null ? Metadata.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "—";
         public ICommand OpenOutputCommand => new RelayCommand(ExecuteOpenOutput);
+        public ICommand CopyMetadata => new RelayCommand(ExecuteCopyMetadata);
+
+        private void ExecuteCopyMetadata(object? parameter)
+        {
+            if (Metadata == null)
+            {
+                MessageBox.Show("There's no metadata");
+                return;
+            }
+
+            try
+            {
+                string subtitleSummary = "자막 없음";
+                var srtPath = Path.Combine(
+                        FolderPath,
+                        "subtitles",
+                        $"original.srt"
+                    );
+                
+                 if (File.Exists(srtPath)) subtitleSummary = LoadSrtPlainText(srtPath);
+                
+
+                var prompt = $"""
+[콘텐츠 정보]
+- 영화 제목: {Metadata.Title}
+
+[자막 기반 장면 요약]
+{subtitleSummary}
+
+[AI 영상 프롬프트 (영문)]
+A cinematic movie scene based on the dialogue above,
+emotional tension, dramatic atmosphere, expressive characters.
+
+[요청]
+위 프롬프트를 참고해서 한국어로 릴스용 설명 문구를 만들어줘.
+""";
+
+                Clipboard.SetText(prompt);
+                MessageBox.Show("AI Prompt just copied");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+                MessageBox.Show("Failed to create prompts");
+            }
+        }
+
 
         private void ExecuteOpenOutput(object? parameter)
         {
@@ -216,6 +263,23 @@ namespace Cloner.ViewModel
                 Metadata = null;
             }
         }
+
+        private string LoadSrtPlainText(string srtPath, int maxChars = 800)
+        {
+            var lines = File.ReadAllLines(srtPath);
+            var textLines = lines
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Where(l => !l.Contains("-->"))
+                .Where(l => !int.TryParse(l, out _))
+                .ToList();
+
+            var joined = string.Join(" ", textLines);
+
+            return joined.Length > maxChars
+                ? joined.Substring(0, maxChars) + "..."
+                : joined;
+        }
+
 
     }
 }

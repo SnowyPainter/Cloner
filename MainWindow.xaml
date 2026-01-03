@@ -131,7 +131,7 @@
                                   Height="30"
                                   Margin="0,5,0,15"
                                       Style="{StaticResource ModernComboBox}"
-                                  IsEnabled="{Binding AvailableSrts.Count}"/>
+                                  IsEnabled="True"/>
 
                             <Button Command="{Binding BuildCommand}"
         Background="#10b981"
@@ -362,8 +362,40 @@
                                         IsEnabled="{Binding IsBuilt}"
                                         Command="{Binding OpenOutputCommand}"/>
                                     </Grid>
+                                    <Separator Background="{StaticResource BorderBrush}" Margin="0,15,0,15"/>
+
+                                    <Border Background="#111827"
+        CornerRadius="10"
+        Padding="15">
+                                        <StackPanel>
+                                            <TextBlock Text="AI Prompt"
+                   Foreground="{StaticResource TextSecondaryBrush}"
+                   FontSize="11"
+                   Margin="0,0,0,10"/>
+
+                                            <Button Content="📋 Copy AI Prompt"
+                Style="{StaticResource PrimaryButtonStyle}"
+                Height="32"
+                FontSize="12"
+                Command="{Binding CopyMetadata}">
+                                                <Button.ToolTip>
+                                                    <ToolTip Content="GPT / Claude에 바로 붙여넣기용 프롬프트 복사"/>
+                                                </Button.ToolTip>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+
                                 </StackPanel>
                             </Border>
+
+                            <Separator Background="{StaticResource BorderBrush}" Margin="0,15,0,15"/>
+
+                            <Button Content="Delete Asset"
+                                    Background="#ef4444"
+                                    Foreground="White"
+                                    Height="36"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Command="{Binding DataContext.DeleteAssetCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
 
                         </StackPanel>
                     </ScrollViewer>

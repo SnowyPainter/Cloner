@@ -5,7 +5,9 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 namespace Cloner.ViewModel
@@ -43,10 +45,14 @@ namespace Cloner.ViewModel
 
             BuildCommand = new RelayCommand(
                 async _ => await RunBuildAsync(),
-                _ => !IsProcessing
-                     && SelectedAsset != null
-                     && SelectedAsset.SelectedSrt != null
+                _ => !IsProcessing && SelectedAsset != null
             );
+
+            DeleteAssetCommand = new RelayCommand(
+                _ => DeleteSelectedAsset(),
+                _ => !IsProcessing && SelectedAsset != null
+            );
+
 
             SelectAssetCommand = new RelayCommand(
                 asset => SelectAsset(asset as AssetViewModel)
@@ -162,6 +168,7 @@ namespace Cloner.ViewModel
 
         public ICommand IngestCommand { get; }
         public ICommand BuildCommand { get; }
+        public ICommand DeleteAssetCommand { get; }
         public ICommand SelectAssetCommand { get; }
 
         // =========================================================
@@ -189,18 +196,41 @@ namespace Cloner.ViewModel
 
         private async Task RunBuildAsync()
         {
-            if (SelectedAsset?.SelectedSrt == null)
-                return;
-
             IsProcessing = true;
-            AppendLog($"[BUILD] {SelectedAsset.AssetId} ({SelectedAsset.SelectedSrt.LangCode})");
+            AppendLog($"[BUILD] {SelectedAsset.AssetId}");
 
-            string args =
-                $"-m reels.cli.main build {SelectedAsset.AssetId} " +
-                $"--translated-lang {SelectedAsset.SelectedSrt.LangCode} " +
-                $"--title \"{BuildTitle}\" " +
-                $"--tagline \"{BuildTagline}\" " +
-                $"--watermark \"{Watermark}\"";
+            var argsList = new List<string>
+            {
+                "-m reels.cli.main build",
+                SelectedAsset.AssetId
+            };
+
+            // SRT (선택)
+            if (SelectedAsset.SelectedSrt != null)
+            {
+                argsList.Add($"--translated-lang {SelectedAsset.SelectedSrt.LangCode}");
+            }
+
+            // Title (선택)
+            if (!string.IsNullOrWhiteSpace(BuildTitle))
+            {
+                argsList.Add($"--title \"{BuildTitle}\"");
+            }
+
+            // Tagline (선택)
+            if (!string.IsNullOrWhiteSpace(BuildTagline))
+            {
+                argsList.Add($"--tagline \"{BuildTagline}\"");
+            }
+
+            // Watermark (선택)
+            if (!string.IsNullOrWhiteSpace(Watermark))
+            {
+                argsList.Add($"--watermark \"{Watermark}\"");
+            }
+
+            string args = string.Join(" ", argsList);
+
 
             await _cli.RunAsync(args);
 
@@ -268,6 +298,91 @@ namespace Cloner.ViewModel
             OnPropertyChanged(nameof(SelectedSrt));
         }
 
+        private void DeleteSelectedAsset()
+        {
+            if (SelectedAsset == null)
+                return;
+
+            var confirm = MessageBox.Show(
+                $"Delete asset \"{SelectedAsset.AssetId}\"?\nThis removes asset and all its data.",
+                "Delete Asset",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning
+            );
+
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            var assetsRoot = Path.GetFullPath(Path.Combine(_workspacePath, "assets"));
+            var assetFolder = Path.GetFullPath(SelectedAsset.FolderPath);
+
+            if (!assetFolder.StartsWith(assetsRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("Invalid asset path.");
+                return;
+            }
+
+            try
+            {
+                RemoveFromRegistry(SelectedAsset.AssetId);
+
+                if (Directory.Exists(assetFolder))
+                    Directory.Delete(assetFolder, true);
+
+                Assets.Remove(SelectedAsset);
+                SelectedAsset = null;
+                OnPropertyChanged(nameof(AvailableSrts));
+                OnPropertyChanged(nameof(SelectedSrt));
+
+                AppendLog($"[DELETE] {assetFolder}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+                MessageBox.Show($"Failed to delete asset: {ex.Message}");
+            }
+        }
+
+        private void RemoveFromRegistry(string assetId)
+        {
+            var registryPath = Path.Combine(_workspacePath, "assets", "registry.json");
+            if (!File.Exists(registryPath))
+                return;
+
+            try
+            {
+                var json = File.ReadAllText(registryPath);
+                if (string.IsNullOrWhiteSpace(json))
+                    return;
+
+                var data = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                if (data == null || data.Count == 0)
+                    return;
+
+                var keysToRemove = data
+                    .Where(kv => string.Equals(kv.Key, assetId, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(kv.Value, assetId, StringComparison.OrdinalIgnoreCase))
+                    .Select(kv => kv.Key)
+                    .ToList();
+
+                if (keysToRemove.Count == 0)
+                    return;
+
+                foreach (var key in keysToRemove)
+                    data.Remove(key);
+
+                var updated = JsonSerializer.Serialize(
+                    data,
+                    new JsonSerializerOptions { WriteIndented = false }
+                );
+                File.WriteAllText(registryPath, updated);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+        }
+
         // =========================================================
         // Helpers
         // =========================================================
@@ -281,6 +396,7 @@ namespace Cloner.ViewModel
         {
             (IngestCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (BuildCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (DeleteAssetCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 }
