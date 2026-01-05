@@ -129,6 +129,13 @@ namespace Cloner.ViewModel
             set { _watermark = value; OnPropertyChanged(); }
         }
 
+        private string _buildCountText = "1";
+        public string BuildCountText
+        {
+            get => _buildCountText;
+            set { _buildCountText = value; OnPropertyChanged(); }
+        }
+
         // === Assets ===
         public ObservableCollection<AssetViewModel> Assets { get; }
 
@@ -227,6 +234,11 @@ namespace Cloner.ViewModel
             if (!string.IsNullOrWhiteSpace(Watermark))
             {
                 argsList.Add($"--watermark \"{Watermark}\"");
+            }
+
+            if (int.TryParse(BuildCountText, out int count) && count > 1)
+            {
+                argsList.Add($"--count {count}");
             }
 
             string args = string.Join(" ", argsList);

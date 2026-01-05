@@ -121,6 +121,13 @@
                                  Margin="0,5,0,10"
                                  Text="{Binding Watermark, UpdateSourceTrigger=PropertyChanged}"/>
 
+                            <TextBlock Text="Count"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12"/>
+                            <TextBox Style="{StaticResource ModernTextBox}"
+                                 Margin="0,5,0,10"
+                                 Text="{Binding BuildCountText, UpdateSourceTrigger=PropertyChanged}"/>
+
                             <TextBlock Text="Draft Translated Subtitle"
                                    Foreground="{StaticResource TextSecondaryBrush}"
                                    FontSize="12"/>
