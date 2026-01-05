@@ -1,19 +1,19 @@
-﻿# 🚀 Quick Start
+﻿# ?? Quick Start
 
 ---
 
-## ✨ Why Source Code?
+## ? Why Source Code?
 
 > _This pipeline is provided as source code instead of a standalone executable, intentionally:_
 
-- **No massive binaries:** Avoids huge (4–8GB) executables  
+- **No massive binaries:** Avoids huge (4?8GB) executables  
 - **Seamless GPU/CUDA support:** Easy to match your hardware  
 - **Simple model upgrades:** Update models as you wish  
 - **Studio-proven workflow:** Mirrors internal studio tools  
 
 ---
 
-## 🛠️ Requirements
+## ??? Requirements
 
 - **Python:** 3.10+
 - **Tools:** `yt-dlp` and `ffmpeg` on your `PATH`
@@ -23,7 +23,7 @@
 
 ---
 
-## ⚡ Install
+## ? Install
 
 ```bash
 pip install -e .
@@ -31,16 +31,22 @@ pip install -e .
 
 ---
 
-## ▶️ Basic Usage
+## ЂК? Basic Usage
 
 ```bash
 reels ingest https://www.youtube.com/watch?v=VIDEO_ID
 reels build VIDEO_ID
 ```
 
+## Build Multiple Reels
+
+```bash
+reels build VIDEO_ID --count 3
+```
+
 ---
 
-## 🌏 With Draft Translation
+## ?? With Draft Translation
 
 ```bash
 # Ingest and create a draft translation to Korean (ko)
@@ -64,17 +70,22 @@ reels build VIDEO_ID --translated-lang ko
 - `--title <text>`
 - `--tagline <text>`
 - `--watermark <text>`
+- `--count <n>` (build up to `n` reels)
 - `--translated-lang <lang>` (draft translation)
 
-## 📂 Output
+## ?? Output
 
 Output video:  
 ```
 workspace/assets/<ASSET_ID>/output/reel_60s.mp4
 ```
 
+Additional reels (if `--count` > 1):  
+```
+workspace/assets/<ASSET_ID>/output/reel_60s_2.mp4
+```
+
 _All other files (subtitles, metadata, etc.) are stored under `workspace/assets/<ASSET_ID>/`._
 
 ---
-
 

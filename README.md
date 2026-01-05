@@ -67,6 +67,12 @@ reels ingest https://www.youtube.com/watch?v=VIDEO_ID --translate ko
 reels build VIDEO_ID --translated-lang ko
 ```
 
+#### Build Multiple Reels (Greedy, Non-overlapping Shots)
+
+```bash
+reels build VIDEO_ID --count 3
+```
+
 **Note:**  
 - Translation is intended as a draft for editing and will download Argos language packs on demand.  
 - Standard language codes are supported (e.g., `ko`, `ja`, `en`, `zh`).
@@ -83,6 +89,7 @@ reels build VIDEO_ID --translated-lang ko
 - `--title <text>`: Add a title overlay.
 - `--tagline <text>`: Add a tagline overlay.
 - `--watermark <text>`: Add a watermark text overlay.
+- `--count <n>`: Build up to `n` reels, greedily avoiding overlap.
 - `--translated-lang <lang>`: Render draft-translated subtitles below the original.
 
 ## CLI Output
@@ -99,8 +106,11 @@ All pipeline data is stored under a `workspace` directory (which is typically `.
 - `workspace/assets/<ASSET_ID>/subtitles/translated_ko.srt` (if draft-translated)
 - `workspace/assets/<ASSET_ID>/derived/shots.json`
 - `workspace/assets/<ASSET_ID>/derived/highlight.json`
+- `workspace/assets/<ASSET_ID>/derived/highlight_2.json` (if `--count` > 1)
 - `workspace/assets/<ASSET_ID>/derived/styled.ass`
+- `workspace/assets/<ASSET_ID>/derived/styled_2.ass` (if `--count` > 1)
 - `workspace/assets/<ASSET_ID>/output/reel_60s.mp4`
+- `workspace/assets/<ASSET_ID>/output/reel_60s_2.mp4` (if `--count` > 1)
 
 ## Troubleshooting
 

@@ -22,7 +22,11 @@ def download_youtube(url: str, video_path: Path, subtitles_dir: Path) -> Optiona
         raise YtDlpError("yt-dlp Python package is required") from exc
 
     opts = {
-        "format": "mp4",
+        "format": (
+            "bv*[height<=1080][ext=mp4]+ba[ext=m4a]"
+            "/b[height<=1080][ext=mp4]"
+            "/b[height<=1080]"
+        ),
         "merge_output_format": "mp4",
         "outtmpl": output_template,
         "writesubtitles": True,

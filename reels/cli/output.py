@@ -25,6 +25,7 @@ class BuildOutput(TypedDict):
     schema: str
     asset_id: str
     output_path: str
+    output_paths: list[str]
 
 
 def emit(payload: Mapping[str, Any]) -> None:
