@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +16,7 @@ from reels.video.letterbox import detect_letterbox_crop
 from reels.video.render import render_reel
 from reels.video.shot_detect import detect_shots
 
+logger = logging.getLogger(__name__)
 
 def build(
     asset_id: str,
@@ -29,6 +31,7 @@ def build(
     manager = AssetManager(workspace)
     asset = manager.get(asset_id)
     manager.update_status(asset_id, stage="building", status="running")
+    logger.info("Build started", extra={"asset_id": asset_id, "count": count})
 
     style = load_style(style_id)
     shots_cfg = style.get("shots", {})
@@ -38,6 +41,10 @@ def build(
     else:
         shots = detect_shots(asset.paths.source_video)
         write_json(asset.paths.shots_json, shots)
+    logger.info(
+        "Shots ready",
+        extra={"asset_id": asset_id, "shots": len(shots)},
+    )
     min_shot_seconds = float(shots_cfg.get("min_duration", 10.0))
     bundles = select_bundles(
         shots,
@@ -47,11 +54,16 @@ def build(
     )
     if not bundles:
         raise ValueError("No highlight shots available for rendering")
+    logger.info(
+        "Highlight bundles selected",
+        extra={"asset_id": asset_id, "bundles": len(bundles)},
+    )
     if bundles:
         write_json(asset.paths.highlight_json, bundles[0])
 
     crop = detect_letterbox_crop(asset.paths.source_video)
     write_json(asset.paths.crop_json, crop.to_dict())
+    logger.info("Crop detected", extra={"asset_id": asset_id})
 
     frame = style.get("frame")
     resolution = tuple(style["video"]["resolution"])
@@ -73,6 +85,14 @@ def build(
     base_ass = asset.paths.subtitles_ass
     base_highlight = asset.paths.highlight_json
     for idx, highlight in enumerate(bundles, start=1):
+        logger.info(
+            "Rendering reel",
+            extra={
+                "asset_id": asset_id,
+                "bundle_index": idx,
+                "bundle_total": len(bundles),
+            },
+        )
         output_path = base_output
         ass_path = base_ass
         highlight_path = base_highlight
@@ -108,8 +128,17 @@ def build(
             punch_zoom=shots_cfg.get("punch_zoom"),
         )
         output_paths.append(output_path)
+        logger.info(
+            "Reel rendered",
+            extra={
+                "asset_id": asset_id,
+                "bundle_index": idx,
+                "output_path": str(output_path),
+            },
+        )
 
     manager.update_status(asset_id, stage="done", status="done")
+    logger.info("Build finished", extra={"asset_id": asset_id, "outputs": len(output_paths)})
     return output_paths
 
 
